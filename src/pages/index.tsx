@@ -31,15 +31,14 @@ export default function Landing() {
       >
         <p className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">{APP_NAME}</p>
         <h1 className="mb-4 max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-          A DeepSpace app with a static front door
+          Sleep well. Power your city.
         </h1>
         <p className="mb-8 max-w-md text-muted-foreground">
-          This landing page ships no auth call and no realtime connection — it's a
-          plain static page. The live app, with sign-in and synced data, lives
-          behind the link below.
+          Every night of rest becomes electricity for a tiny isometric town. Keep the
+          lights on, earn coins, and upgrade your buildings.
         </p>
         <Link
-          to="/home"
+          to="/city"
           className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
           Enter the app

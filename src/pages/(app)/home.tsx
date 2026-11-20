@@ -1,11 +1,9 @@
 /**
- * Placeholder home page — replace this with the app's real home.
- *
- * This is intentionally unstyled scaffolding, not a design to build on.
- * Design the app's own look (layout, theme tokens, typography) from your
- * product's point of view instead of extending this page.
+ * /home — public dynamic page (providers mounted, no sign-in required).
+ * Points signed-in players at their city and invites everyone else to sign in.
  */
 
+import { Link } from 'react-router-dom'
 import { useAuthProfileReady } from 'deepspace'
 import { APP_NAME } from '../../constants'
 
@@ -16,12 +14,15 @@ export default function HomePage() {
     <div className="flex min-h-full flex-col items-center justify-center gap-3 bg-background px-6 text-center text-foreground">
       <h1 className="text-2xl font-semibold">{APP_NAME}</h1>
       <p className="max-w-md text-sm text-muted-foreground">
-        This is a placeholder page. Replace <code>src/pages/(app)/home.tsx</code>{' '}
-        with the app&apos;s real home, and give the app its own theme in{' '}
-        <code>src/themes.css</code>.
+        Your sleep powers a tiny city. Sign in to start yours.
       </p>
       {isSignedIn && user && (
-        <p className="text-sm text-muted-foreground">Signed in as {user.name ?? user.email}</p>
+        <>
+          <p className="text-sm text-muted-foreground">Signed in as {user.name ?? user.email}</p>
+          <Link to="/city" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+            Go to your city →
+          </Link>
+        </>
       )}
     </div>
   )
