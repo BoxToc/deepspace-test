@@ -41,6 +41,7 @@ describe('createInitialCity', () => {
       lastRewardDay: '',
       lastRewardedWakeAt: 0,
       buildings: { power: 1, residential: 1, shop: 1, park: 1 },
+      revision: 0,
     })
   })
 

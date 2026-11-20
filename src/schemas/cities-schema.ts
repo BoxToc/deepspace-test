@@ -6,6 +6,7 @@ import type { CollectionSchema } from 'deepspace/schema'
  * Server-authoritative: no role may create/update/delete from the client.
  * Every write goes through a server action (src/actions/), which runs the
  * economy rules with server time. Players can read only their own city.
+ * After creation, every change goes through `mutateCity` (revision-claimed).
  */
 export const citiesSchema: CollectionSchema = {
   name: 'cities',
@@ -20,6 +21,8 @@ export const citiesSchema: CollectionSchema = {
     { name: 'lastRewardDay', storage: 'text', interpretation: 'plain', default: '' },
     { name: 'lastRewardedWakeAt', storage: 'number', interpretation: 'plain', default: 0 },
     { name: 'buildings', storage: 'text', interpretation: { kind: 'json' } },
+    /** Optimistic-concurrency counter — see src/actions/city-store.ts. */
+    { name: 'revision', storage: 'number', interpretation: 'plain', default: 0 },
   ],
   ownerField: 'userId',
   uniqueOn: ['userId'],

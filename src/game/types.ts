@@ -25,6 +25,16 @@ export interface CityData extends Record<string, unknown> {
   /** Server time (ms) of the last rewarded wake-up, or 0. */
   lastRewardedWakeAt: number
   buildings: BuildingLevels
+  /** Optimistic-concurrency counter; bumped by every committed change. */
+  revision: number
+}
+
+export interface EnergyRewardData extends Record<string, unknown> {
+  userId: string
+  sessionId: string
+  rewardDay: string
+  energy: number
+  wakeAt: number
 }
 
 export type SleepStatus = 'active' | 'completed' | 'cancelled'
@@ -56,7 +66,28 @@ export interface SleepSessionData extends Record<string, unknown> {
   /** Minutes that counted toward energy (step-rounded and capped). */
   creditedMinutes: number
   energyAwarded: number
+  /** Part of energyAwarded that fit in the battery. */
+  energyStored: number
+  /** 'open' while active, 'closed:<recordId>' after — backs the one-open-session lock. */
+  openSlot: string
   /** Local date of wake-up, "YYYY-MM-DD", or '' while active / cancelled. */
   rewardDay: string
   rewardStatus: RewardStatus
+}
+
+/**
+ * One committed city revision (append-only; see src/actions/city-store.ts).
+ * The current city = base `cities` row overlaid with the latest `next`.
+ */
+export interface CityMutationData extends Record<string, unknown> {
+  userId: string
+  /** The revision this row creates (the base row is revision 0). */
+  revision: number
+  reason: string
+  /** Related record (e.g. the sleep session) — lets replays find this entry. */
+  refId: string
+  /** Complete city state at this revision. */
+  next: Partial<CityData>
+  /** Extra facts decided at commit time (e.g. energyStored). */
+  meta: Record<string, unknown>
 }

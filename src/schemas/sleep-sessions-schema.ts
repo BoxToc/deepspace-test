@@ -7,8 +7,10 @@ import type { CollectionSchema } from 'deepspace/schema'
  * actions write. `recordedMinutes` is how long the session ran (not verified
  * sleep); `creditedMinutes` is what the reward rules accepted.
  *
- * Written by the Phase 2 sleep actions; defined now so the data model is
- * complete and migrates in one step.
+ * One open session per player: `openSlot` is 'open' while a session runs and
+ * 'closed:<recordId>' once it ends, and `uniqueOn: ['userId', 'openSlot']`
+ * makes the DO refuse a second open row — even from two simultaneous
+ * Start Sleep requests.
  */
 export const sleepSessionsSchema: CollectionSchema = {
   name: 'sleep_sessions',
@@ -26,6 +28,9 @@ export const sleepSessionsSchema: CollectionSchema = {
     { name: 'recordedMinutes', storage: 'number', interpretation: 'plain', default: 0 },
     { name: 'creditedMinutes', storage: 'number', interpretation: 'plain', default: 0 },
     { name: 'energyAwarded', storage: 'number', interpretation: 'plain', default: 0 },
+    /** Part of energyAwarded that fit in the battery (the rest was lost). */
+    { name: 'energyStored', storage: 'number', interpretation: 'plain', default: 0 },
+    { name: 'openSlot', storage: 'text', interpretation: 'plain', required: true },
     { name: 'rewardDay', storage: 'text', interpretation: 'plain', default: '' },
     {
       name: 'rewardStatus',
@@ -38,6 +43,7 @@ export const sleepSessionsSchema: CollectionSchema = {
     },
   ],
   ownerField: 'userId',
+  uniqueOn: ['userId', 'openSlot'],
   permissions: {
     viewer: { read: 'own', create: false, update: false, delete: false },
     member: { read: 'own', create: false, update: false, delete: false },

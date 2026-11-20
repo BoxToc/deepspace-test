@@ -38,5 +38,14 @@ export function createInitialCity(userId: string, timezone: unknown, now: number
     lastRewardDay: '',
     lastRewardedWakeAt: 0,
     buildings: startingBuildings(),
+    revision: 0,
   }
+}
+
+/**
+ * Current city = base row overlaid with the latest committed revision.
+ * Used by the server (loadCity) and the client (useCity) alike.
+ */
+export function currentCityState(base: CityData, latest: Partial<CityData> | undefined): CityData {
+  return latest ? { ...base, ...latest, userId: base.userId } : { ...base, revision: base.revision ?? 0 }
 }
