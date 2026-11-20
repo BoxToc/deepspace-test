@@ -1,29 +1,31 @@
 /**
  * /city — the player's town (sign-in required via the (protected) group).
  *
- * The isometric scene shows the live city record: building levels, power
- * state (lights on / dimmed), and a night sky while a sleep session runs.
- * Below it: energy and coins, the sleep panel, and a building list with the
- * same state in text form.
+ * Everything shown is the LIVE city: the stored snapshot settled to the
+ * server-aligned current time every second (useLiveCity), so energy drains,
+ * coins tick up, and buildings dim the moment the battery empties. All
+ * changes go through server actions; this page never writes the city.
  */
 
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { BatteryCharging, Coins, Moon, Zap } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { TimezoneSetting } from '@/components/TimezoneSetting'
 import { SleepPanel } from '@/components/SleepPanel'
 import { DevClockPanel } from '@/components/DevClockPanel'
 import { CityScene } from '@/components/city/CityScene'
+import { UpgradePanel } from '@/components/city/UpgradePanel'
 import { DEV_TOOLS, useDevClock } from '@/hooks/useDevClock'
-import { BUILDING_KEYS, BUILDINGS, BATTERY_CAPACITY, MAX_BUILDING_LEVEL, type BuildingKey } from '@/game/config'
-import { isCityPowered } from '@/game/power'
+import { useLiveCity, type LiveCity } from '@/hooks/useLiveCity'
+import { BUILDING_KEYS, BUILDINGS, MAX_BUILDING_LEVEL, type BuildingKey } from '@/game/config'
+import { upgradeCost } from '@/game/economy'
 import type { BuildingLevels, CityData } from '@/game/types'
 import { useCity } from '@/hooks/useCity'
 import { APP_NAME } from '@/constants'
 
 export default function CityPage() {
-  const { city, loading, error, retry } = useCity()
-  const devClock = useDevClock()
-  const preview = useDevPreview()
+  const { city, loading, error, retry, clockOffsetMs, syncClock } = useCity()
 
   if (error) {
     return (
@@ -42,43 +44,112 @@ export default function CityPage() {
     )
   }
 
-  const { data } = city
-  const capacity = BATTERY_CAPACITY[data.buildings.power] ?? BATTERY_CAPACITY[1]
-  const view = preview(data)
+  return <CityDashboard stored={city.data} clockOffsetMs={clockOffsetMs} syncClock={syncClock} />
+}
+
+function CityDashboard({ stored, clockOffsetMs, syncClock }: { stored: CityData; clockOffsetMs: number; syncClock: () => Promise<void> }) {
+  const live = useLiveCity(stored, clockOffsetMs)
+  const devClock = useDevClock()
+  const preview = useDevPreview()
+  const view = preview(live, stored)
+  const [selected, setSelected] = useState<BuildingKey | null>(null)
+  const { city } = live
+
+  const advanceDevClock = async (minutes: number) => {
+    await devClock.advance(minutes)
+    await syncClock()
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10" data-testid="city-page">
       <title>{`City · ${APP_NAME}`}</title>
       <div className="flex flex-wrap items-end justify-between gap-2">
         <h1 className="text-2xl font-semibold text-foreground">Your city</h1>
-        <TimezoneSetting city={data} />
+        <TimezoneSetting city={stored} now={live.now} />
       </div>
 
       <div className="mt-4">
-        <CityScene levels={view.levels} power={view.power} sleeping={view.sleeping} />
+        <CityScene levels={view.levels} power={view.power} sleeping={view.sleeping} onSelect={setSelected} />
+        <p className="mt-2 text-center text-xs text-muted-foreground">Tap a building to see what it does and upgrade it.</p>
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-3 sm:gap-4">
-        <Stat label="Electricity" testId="city-electricity" value={`${formatNumber(data.electricity)} / ${capacity} ⚡`} />
-        <Stat label="Coins" testId="city-coins" value={`${Math.floor(data.coins)}`} />
+        <Stat
+          icon={<Zap className="size-4 text-amber-400" aria-hidden />}
+          label="Electricity"
+          testId="city-electricity"
+          value={`${formatAmount(city.electricity)} / ${live.capacity} ⚡`}
+          sub={
+            live.powered ? (
+              <span data-testid="city-power-hours">≈ {formatHours(live.hoursLeft)} of power · uses {formatAmount(live.usagePerHour)} ⚡/h</span>
+            ) : (
+              <span className="text-destructive" data-testid="city-power-hours">
+                Out of power — sleep to recharge
+              </span>
+            )
+          }
+          meter={Math.min(1, city.electricity / live.capacity)}
+        />
+        <Stat
+          icon={<Coins className="size-4 text-amber-400" aria-hidden />}
+          label="Coins"
+          testId="city-coins"
+          value={`${Math.floor(city.coins)}`}
+          sub={
+            <span data-testid="city-coin-rate">
+              {live.powered ? `+${formatAmount(live.coinsPerHour)} / hour` : 'Paused while the power is out'}
+            </span>
+          }
+        />
       </dl>
 
-      <SleepPanel city={data} clockOffsetMs={devClock.offsetMs} />
+      <SleepPanel city={stored} clockOffsetMs={clockOffsetMs} devClockOffsetMs={DEV_TOOLS ? devClock.offsetMs : 0} />
 
-      <h2 className="mt-10 text-sm font-medium uppercase tracking-wide text-muted-foreground">Buildings</h2>
+      <h2 className="mt-10 flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+        <BatteryCharging className="size-4" aria-hidden /> Buildings
+      </h2>
       <ul className="mt-3 divide-y divide-border rounded-lg border border-border" data-testid="city-buildings">
-        {BUILDING_KEYS.map((key) => (
-          <li key={key} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-            <span className="text-foreground">{BUILDINGS[key].label}</span>
-            <span className="flex items-center gap-3 text-muted-foreground">
-              <span data-testid={`building-power-${key}`}>{view.power[key] ? 'Powered' : 'No power'}</span>
-              <span data-testid={`building-level-${key}`}>Level {data.buildings[key]}</span>
-            </span>
-          </li>
-        ))}
+        {BUILDING_KEYS.map((key) => {
+          const level = stored.buildings[key]
+          const cost = upgradeCost(level)
+          const affordable = cost !== null && city.coins >= cost
+          return (
+            <li key={key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 text-sm" data-testid={`building-row-${key}`}>
+              <button type="button" className="text-left text-foreground underline-offset-4 hover:underline" onClick={() => setSelected(key)}>
+                {BUILDINGS[key].label}
+              </button>
+              <span className="flex flex-wrap items-center gap-3 text-muted-foreground">
+                <span data-testid={`building-power-${key}`}>{view.power[key] ? 'Powered' : 'No power'}</span>
+                <span data-testid={`building-level-${key}`}>
+                  Level {level}/{MAX_BUILDING_LEVEL}
+                </span>
+                {cost === null ? (
+                  <span className="text-foreground" data-testid={`building-max-${key}`}>Max</span>
+                ) : (
+                  <Button size="sm" variant={affordable ? 'default' : 'outline'} onClick={() => setSelected(key)} data-testid={`building-upgrade-${key}`}>
+                    <Coins className="size-3.5" aria-hidden /> {cost}
+                  </Button>
+                )}
+              </span>
+            </li>
+          )
+        })}
       </ul>
+      {stored.activeSessionId && (
+        <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Moon className="size-3.5" aria-hidden /> Your town keeps running on stored power while you sleep.
+        </p>
+      )}
 
-      {DEV_TOOLS && <DevClockPanel {...devClock} />}
+      <UpgradePanel
+        building={selected}
+        level={selected ? stored.buildings[selected] : 1}
+        coins={city.coins}
+        powered={live.powered}
+        onClose={() => setSelected(null)}
+      />
+
+      {DEV_TOOLS && <DevClockPanel offsetMs={devClock.offsetMs} advance={advanceDevClock} error={devClock.error} />}
     </div>
   )
 }
@@ -89,24 +160,15 @@ interface SceneView {
   sleeping: boolean
 }
 
-function liveView(city: CityData): SceneView {
-  const powered = isCityPowered(city)
-  return {
-    levels: city.buildings,
-    power: Object.fromEntries(BUILDING_KEYS.map((k) => [k, powered])) as Record<BuildingKey, boolean>,
-    sleeping: Boolean(city.activeSessionId),
-  }
-}
-
 /**
  * DEV ONLY: `?preview=unpowered|night&level=1..3` overrides what the scene
- * DRAWS (never server state) so every look can be checked without editing a
- * city. In production builds DEV_TOOLS is false and the URL is ignored.
+ * DRAWS (never server state). In production builds DEV_TOOLS is false and
+ * the URL is ignored.
  */
 function useDevPreview() {
   const [params] = useSearchParams()
-  return (city: CityData): SceneView => {
-    const view = liveView(city)
+  return (live: LiveCity, stored: CityData): SceneView => {
+    const view: SceneView = { levels: stored.buildings, power: live.power, sleeping: Boolean(stored.activeSessionId) }
     if (!DEV_TOOLS) return view
     const mode = params.get('preview')
     const level = Number(params.get('level'))
@@ -119,15 +181,47 @@ function useDevPreview() {
   }
 }
 
-function Stat({ label, value, testId }: { label: string; value: string; testId: string }) {
+function Stat({
+  icon,
+  label,
+  value,
+  sub,
+  testId,
+  meter,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: string
+  sub: React.ReactNode
+  testId: string
+  meter?: number
+}) {
   return (
     <div className="rounded-lg border border-border bg-card px-4 py-3">
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-xl font-semibold text-foreground" data-testid={testId}>{value}</dd>
+      <dt className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
+        {icon}
+        {label}
+      </dt>
+      <dd className="mt-1 text-xl font-semibold tabular-nums text-foreground" data-testid={testId}>{value}</dd>
+      {meter !== undefined && (
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+          <div className="h-full rounded-full bg-amber-400 transition-[width] duration-700" style={{ width: `${meter * 100}%` }} />
+        </div>
+      )}
+      <dd className="mt-1.5 text-xs text-muted-foreground">{sub}</dd>
     </div>
   )
 }
 
-function formatNumber(n: number): string {
-  return Number.isInteger(n) ? String(n) : n.toFixed(1)
+function formatAmount(n: number): string {
+  const r = Math.round(n * 10) / 10
+  return Number.isInteger(r) ? String(r) : r.toFixed(1)
+}
+
+function formatHours(h: number): string {
+  if (!Number.isFinite(h)) return '∞'
+  const total = Math.floor(h * 60)
+  const hh = Math.floor(total / 60)
+  const mm = total % 60
+  return hh ? `${hh}h ${mm}m` : `${mm}m`
 }

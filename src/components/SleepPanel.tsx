@@ -1,27 +1,49 @@
 /**
- * Start Sleep / Wake Up / Cancel, plus recent history.
+ * Start Sleep / Wake Up / Cancel Session, plus recent history.
  *
- * The panel never computes rewards — it calls the server action and shows
+ * Awake  -> only "Start Sleep".
+ * Asleep -> "Wake Up" (claim the reward) and "Cancel Session" (end it without
+ *           a reward, after a confirmation). "Asleep" comes from the city's own
+ *           activeSessionId, so the controls are right even before the session
+ *           row arrives over the live subscription.
+ *
+ * The panel never computes rewards: it calls the server action and shows
  * the outcome. The live timer is display-only ("recorded" time, not verified
- * sleep).
+ * sleep). History is filtered to this player (the app owner is an admin and
+ * could otherwise receive every player's sessions).
  */
 
 import { useEffect, useState } from 'react'
 import { useQuery } from 'deepspace'
 import { Button } from '@/components/ui'
 import { callAction } from '@/lib/actions'
+import { DEV_TOOLS } from '@/hooks/useDevClock'
 import { formatDayKey, formatEnergy, formatMinutes, REWARD_LABELS, sessionDayKey } from '@/game/format'
+import { selectOwnSessions } from '@/game/ownership'
 import { recordedMinutes } from '@/game/sleep'
 import type { CityData, SleepSessionData } from '@/game/types'
 
 type Busy = null | 'start' | 'wake' | 'cancel'
 
-export function SleepPanel({ city, clockOffsetMs }: { city: CityData; clockOffsetMs: number }) {
-  const { records: sessions } = useQuery<SleepSessionData>('sleep_sessions', {
+export function SleepPanel({
+  city,
+  clockOffsetMs,
+  devClockOffsetMs = 0,
+}: {
+  city: CityData
+  /** Server time minus browser time (includes the dev clock in local dev). */
+  clockOffsetMs: number
+  /** DEV ONLY: how far the simulated clock is ahead, to explain future dates. */
+  devClockOffsetMs?: number
+}) {
+  const query = useQuery<SleepSessionData>('sleep_sessions', {
+    where: { userId: city.userId },
     orderBy: 'startedAt',
     orderDir: 'desc',
     limit: 7,
   })
+  const sessions = selectOwnSessions(city.userId, query.records, 7)
+  const sleeping = Boolean(city.activeSessionId)
   const active = sessions.find((s) => s.recordId === city.activeSessionId && s.data.status === 'active')
   const now = useNow(clockOffsetMs)
   const [busy, setBusy] = useState<Busy>(null)
@@ -41,35 +63,39 @@ export function SleepPanel({ city, clockOffsetMs }: { city: CityData; clockOffse
   }
 
   return (
-    <section className="mt-8 rounded-lg border border-border bg-card p-5" data-testid="sleep-panel">
-      {active ? (
+    <section className="mt-8 rounded-lg border border-border bg-card p-5" data-testid="sleep-panel" data-sleeping={sleeping}>
+      {sleeping ? (
         <>
           <p className="text-sm text-muted-foreground" data-testid="sleep-status">
-            Sleeping since {new Date(active.data.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {active ? `Sleeping since ${formatStart(active.data.startedAt, now)}` : 'Sleeping…'}
           </p>
-          <p className="mt-1 text-3xl font-semibold text-foreground" data-testid="sleep-elapsed">
-            {formatMinutes(recordedMinutes(active.data.startedAt, now))}
+          <p className="mt-1 text-3xl font-semibold tabular-nums text-foreground" data-testid="sleep-elapsed">
+            {active ? formatMinutes(recordedMinutes(active.data.startedAt, now)) : '—'}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">Recorded time — how long this session has been running.</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button disabled={busy !== null} onClick={() => void run('wake', 'wakeUp')} data-testid="sleep-wake">
-              {busy === 'wake' ? 'Waking…' : 'Wake Up'}
-            </Button>
-            {confirmCancel ? (
-              <Button
-                variant="destructive"
-                disabled={busy !== null}
-                onClick={() => void run('cancel', 'cancelSleep')}
-                data-testid="sleep-cancel-confirm"
-              >
-                Cancel without reward
+
+          {confirmCancel ? (
+            <div className="mt-4 rounded-md border border-border p-3" data-testid="sleep-cancel-dialog">
+              <p className="text-sm text-foreground">Cancel this session? It will be saved as cancelled and no energy is awarded.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button variant="destructive" disabled={busy !== null} onClick={() => void run('cancel', 'cancelSleep')} data-testid="sleep-cancel-confirm">
+                  {busy === 'cancel' ? 'Cancelling…' : 'Yes, cancel session'}
+                </Button>
+                <Button variant="outline" disabled={busy !== null} onClick={() => setConfirmCancel(false)} data-testid="sleep-cancel-keep">
+                  Keep sleeping
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button disabled={busy !== null} onClick={() => void run('wake', 'wakeUp')} data-testid="sleep-wake">
+                {busy === 'wake' ? 'Waking…' : 'Wake Up'}
               </Button>
-            ) : (
-              <Button variant="ghost" disabled={busy !== null} onClick={() => setConfirmCancel(true)} data-testid="sleep-cancel">
-                Started by mistake?
+              <Button variant="outline" disabled={busy !== null} onClick={() => setConfirmCancel(true)} data-testid="sleep-cancel">
+                Cancel Session
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </>
       ) : (
         <>
@@ -89,16 +115,28 @@ export function SleepPanel({ city, clockOffsetMs }: { city: CityData; clockOffse
         </p>
       )}
 
-      <SleepHistory sessions={sessions.filter((s) => s.data.status !== 'active')} />
+      <SleepHistory sessions={sessions.filter((s) => s.data.status !== 'active')} devClockOffsetMs={devClockOffsetMs} />
     </section>
   )
 }
 
-function SleepHistory({ sessions }: { sessions: { recordId: string; data: SleepSessionData }[] }) {
+/** "22:40" today, otherwise "Thu, Nov 19, 22:40" (relative to server-aligned now). */
+function formatStart(startedAt: number, now: number): string {
+  const time = new Date(startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  if (new Date(startedAt).toDateString() === new Date(now).toDateString()) return time
+  return `${new Date(startedAt).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}, ${time}`
+}
+
+function SleepHistory({ sessions, devClockOffsetMs }: { sessions: { recordId: string; data: SleepSessionData }[]; devClockOffsetMs: number }) {
   if (sessions.length === 0) return null
   return (
     <div className="mt-6">
       <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Recent sessions</h3>
+      {DEV_TOOLS && devClockOffsetMs > 0 && (
+        <p className="mt-1 text-xs text-amber-400" data-testid="sleep-history-dev-note">
+          Dev: dates follow the simulated test clock ({formatAhead(devClockOffsetMs)} ahead of real time).
+        </p>
+      )}
       <ul className="mt-2 divide-y divide-border text-sm" data-testid="sleep-history">
         {sessions.map(({ recordId, data: s }) => (
           <li key={recordId} className="flex flex-wrap items-baseline justify-between gap-2 py-2" data-testid="sleep-row" data-status={s.rewardStatus}>
@@ -115,6 +153,12 @@ function SleepHistory({ sessions }: { sessions: { recordId: string; data: SleepS
       </ul>
     </div>
   )
+}
+
+function formatAhead(ms: number): string {
+  const days = Math.floor(ms / 86_400_000)
+  const hours = Math.floor((ms % 86_400_000) / 3_600_000)
+  return days ? `${days}d ${hours}h` : `${hours}h`
 }
 
 function describeOutcome(s: SleepSessionData): string {
