@@ -63,7 +63,7 @@ export interface BuildingSpec {
 
 export const BUILDINGS: Record<BuildingKey, BuildingSpec> = {
   power: { label: 'Power Station', energyPerHourPerLevel: 0, coinsPerHourPerLevel: 0, coinBonusPerLevel: 0 },
-  residential: { label: 'Residences', energyPerHourPerLevel: 1, coinsPerHourPerLevel: 5, coinBonusPerLevel: 0 },
+  residential: { label: 'Houses', energyPerHourPerLevel: 1, coinsPerHourPerLevel: 5, coinBonusPerLevel: 0 },
   shop: { label: 'Shop', energyPerHourPerLevel: 2, coinsPerHourPerLevel: 12, coinBonusPerLevel: 0 },
   park: { label: 'Park', energyPerHourPerLevel: 0.5, coinsPerHourPerLevel: 0, coinBonusPerLevel: 0.1 },
 }
