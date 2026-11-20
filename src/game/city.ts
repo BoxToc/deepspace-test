@@ -38,5 +38,6 @@ export function createInitialCity(userId: string, timezone: unknown, now: number
     lastRewardDay: '',
     lastRewardedWakeAt: 0,
     buildings: startingBuildings(),
+    revision: 0,
   }
 }

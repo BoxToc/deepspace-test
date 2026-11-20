@@ -8,12 +8,16 @@
 
 import { Button } from '@/components/ui'
 import { TimezoneSetting } from '@/components/TimezoneSetting'
+import { SleepPanel } from '@/components/SleepPanel'
+import { DevClockPanel } from '@/components/DevClockPanel'
+import { DEV_TOOLS, useDevClock } from '@/hooks/useDevClock'
 import { BUILDING_KEYS, BUILDINGS, BATTERY_CAPACITY } from '@/game/config'
 import { useCity } from '@/hooks/useCity'
 import { APP_NAME } from '@/constants'
 
 export default function CityPage() {
   const { city, loading, error, retry } = useCity()
+  const devClock = useDevClock()
 
   if (error) {
     return (
@@ -46,6 +50,8 @@ export default function CityPage() {
         <Stat label="Coins" testId="city-coins" value={`${Math.floor(data.coins)}`} />
       </dl>
 
+      <SleepPanel city={data} clockOffsetMs={devClock.offsetMs} />
+
       <h2 className="mt-10 text-sm font-medium uppercase tracking-wide text-muted-foreground">Buildings</h2>
       <ul className="mt-3 divide-y divide-border rounded-lg border border-border" data-testid="city-buildings">
         {BUILDING_KEYS.map((key) => (
@@ -57,6 +63,8 @@ export default function CityPage() {
           </li>
         ))}
       </ul>
+
+      {DEV_TOOLS && <DevClockPanel {...devClock} />}
     </div>
   )
 }
