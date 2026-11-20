@@ -65,7 +65,7 @@ function CityDashboard({ stored, clockOffsetMs, syncClock }: { stored: CityData;
       <title>{`City · ${APP_NAME}`}</title>
       <div className="flex flex-wrap items-end justify-between gap-2">
         <h1 className="text-2xl font-semibold text-foreground">Your city</h1>
-        <TimezoneSetting city={stored} />
+        <TimezoneSetting city={stored} now={live.now} />
       </div>
 
       <div className="mt-4">
@@ -103,7 +103,7 @@ function CityDashboard({ stored, clockOffsetMs, syncClock }: { stored: CityData;
         />
       </dl>
 
-      <SleepPanel city={stored} clockOffsetMs={clockOffsetMs} />
+      <SleepPanel city={stored} clockOffsetMs={clockOffsetMs} devClockOffsetMs={DEV_TOOLS ? devClock.offsetMs : 0} />
 
       <h2 className="mt-10 flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
         <BatteryCharging className="size-4" aria-hidden /> Buildings

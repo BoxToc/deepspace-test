@@ -1,9 +1,10 @@
 /**
  * The signed-in player's city.
  *
- * Reads come from live record subscriptions (`useQuery`) — `read: 'own'`
- * means the server only ever sends this player's rows, and every open tab
- * updates when any tab (or the server) commits a change. City state is
+ * Reads come from live record subscriptions (`useQuery`) filtered to the
+ * signed-in player's `userId` (and re-checked by selectOwnCity), so every
+ * open tab updates when any tab (or the server) commits a change — and an
+ * admin (the app owner) sees their own city, not an arbitrary player's. City state is
  * versioned (see src/actions/city-store.ts): the base `cities` row overlaid
  * with the highest-revision `city_mutations` row, so the view only moves
  * forward.
@@ -15,22 +16,21 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useQuery } from 'deepspace'
+import { useAuthStatus, useQuery } from 'deepspace'
 import { callAction } from '@/lib/actions'
-import { currentCityState } from '@/game/city'
+import { selectOwnCity } from '@/game/ownership'
 import type { CityData, CityMutationData } from '@/game/types'
 
 type InitState = 'idle' | 'creating' | 'error'
 
 export function useCity() {
-  const base = useQuery<CityData>('cities', { limit: 1 })
-  const latest = useQuery<CityMutationData>('city_mutations', { orderBy: 'revision', orderDir: 'desc', limit: 1 })
-  const baseRow = base.records[0] ?? null
-  const latestNext = latest.records[0]?.data.next
-  const city = useMemo(
-    () => (baseRow ? { recordId: baseRow.recordId, data: currentCityState(baseRow.data, latestNext) } : null),
-    [baseRow, latestNext],
-  )
+  // Always scope to the signed-in player. `read: 'own'` only limits MEMBERS;
+  // the app owner is an admin and would otherwise receive every player's rows.
+  const { userId } = useAuthStatus()
+  const mine = { userId: userId ?? '__signed_out__' }
+  const base = useQuery<CityData>('cities', { where: mine, limit: 1 })
+  const latest = useQuery<CityMutationData>('city_mutations', { where: mine, orderBy: 'revision', orderDir: 'desc', limit: 1 })
+  const city = useMemo(() => selectOwnCity(userId, base.records, latest.records), [userId, base.records, latest.records])
   const status =
     base.status === 'error' || latest.status === 'error' ? 'error' : base.status === 'ready' && latest.status === 'ready' ? 'ready' : 'loading'
 

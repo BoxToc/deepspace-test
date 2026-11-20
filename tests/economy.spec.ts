@@ -184,3 +184,61 @@ test('upgrade from the scene: building grows, progress survives refresh, other t
   await expect(page.getByTestId('city-coins')).toHaveText('50')
   await expect(page.locator('[data-testid="city-building"][data-building="power"] img')).toHaveCount(3)
 })
+
+// ── Playtest regressions ───────────────────────────────────────────────────
+
+test('regression: switching time zone in the UI updates the display (no "already your time zone")', async ({ users }) => {
+  const { page, api } = await dave(users)
+  await openCity(page)
+  const deviceTz = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone)
+  const other = deviceTz === 'Europe/London' ? 'Asia/Tokyo' : 'Europe/London'
+
+  // Start from a zone different from this browser's, past any 7-day lock.
+  await api.advance(8 * 24 * 60)
+  if ((await api.city()).timezone !== other) {
+    expect((await api.act('updateTimezone', { timezone: other })).success).toBe(true)
+    await api.advance(8 * 24 * 60)
+  }
+
+  await openCity(page)
+  await expect(page.getByTestId('city-timezone')).toHaveText(other)
+  await page.getByTestId('timezone-switch').click()
+  await expect(page.getByTestId('city-timezone')).toHaveText(deviceTz)
+  await expect(page.getByTestId('timezone-error')).toHaveCount(0)
+  await expect(page.getByTestId('timezone-locked')).toBeVisible()
+  expect((await api.city()).timezone).toBe(deviceTz) // server agrees with the display
+})
+
+test('regression: coin balance after upgrades matches the server in every open tab', async ({ users }) => {
+  const { page, context, api } = await dave(users)
+  await api.reset({ coins: 450 }) // 0 ⚡ → coins don't change on their own
+  await openCity(page)
+  const tabB = await context.newPage()
+  await openCity(tabB)
+  for (const tab of [page, tabB]) await expect(tab.getByTestId('city-coins')).toHaveText('450')
+
+  const buy = async (tab: Page, building: string, expectCoins: string) => {
+    await tab.getByTestId(`building-upgrade-${building}`).click()
+    await tab.getByTestId('upgrade-button').click()
+    await expect(tab.getByTestId('upgrade-result')).toBeVisible()
+    await tab.keyboard.press('Escape')
+    const server = ((await api.inspect()).city as unknown as { coins: number }).coins
+    expect(String(server)).toBe(expectCoins)
+    for (const t of [page, tabB]) await expect(t.getByTestId('city-coins')).toHaveText(expectCoins)
+  }
+  await buy(page, 'shop', '350') // tab A
+  await buy(tabB, 'residential', '250') // tab B
+  await buy(page, 'park', '150') // tab A again
+  // Tab B sees the Shop at level 2 (bought in tab A); level 3 costs 200 → unaffordable with 150.
+  await tabB.getByTestId('building-upgrade-shop').click()
+  await expect(tabB.getByTestId('upgrade-level')).toHaveText('2')
+  await expect(tabB.getByTestId('upgrade-missing')).toHaveText('· need 50 more')
+  await expect(tabB.getByTestId('upgrade-button')).toBeDisabled()
+  await tabB.keyboard.press('Escape')
+  await expect(tabB.getByTestId('city-coins')).toHaveText('150')
+  await expect(page.getByTestId('building-level-shop')).toHaveText('Level 2/3')
+
+  // Persisted: a fresh load shows the same balance.
+  await page.reload()
+  await expect(page.getByTestId('city-coins')).toHaveText('150', { timeout: 20_000 })
+})

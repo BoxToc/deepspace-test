@@ -30,6 +30,13 @@ export function DevClockPanel({
         Server clock is <span data-testid="dev-clock-offset">{formatMinutes(Math.round(offsetMs / 60_000))}</span> ahead for you.
         Rewards still run through the real Start / Wake Up rules.
       </p>
+      <p className="mt-1 text-muted-foreground">
+        Simulated now:{' '}
+        <span className="text-foreground" data-testid="dev-clock-now">
+          {new Date(Date.now() + offsetMs).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+        </span>{' '}
+        · sleep history and timers use this clock, so dates can be days or months ahead of today.
+      </p>
       <div className="mt-3 flex flex-wrap gap-2">
         {STEPS.map((s) => (
           <Button key={s.minutes} size="sm" variant="outline" onClick={() => void advance(s.minutes)} data-testid={`dev-advance-${s.minutes}`}>

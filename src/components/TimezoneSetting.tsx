@@ -10,13 +10,14 @@ import { callAction } from '@/lib/actions'
 import { nextTimezoneChangeAt } from '@/game/time'
 import type { CityData } from '@/game/types'
 
-export function TimezoneSetting({ city }: { city: CityData }) {
+/** `now` is server-aligned time (includes the dev clock locally), so the lock matches the server. */
+export function TimezoneSetting({ city, now }: { city: CityData; now: number }) {
   const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
   const nextAllowedAt = nextTimezoneChangeAt(city.timezoneChangedAt ?? 0)
-  const locked = nextAllowedAt > Date.now()
+  const locked = nextAllowedAt > now
   const differs = deviceTz && deviceTz !== city.timezone
 
   const switchZone = async () => {

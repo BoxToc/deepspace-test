@@ -279,3 +279,66 @@ test('UI: Start Sleep → (dev clock +8h) → Wake Up shows the reward and histo
   await expect(page.getByTestId('sleep-row').first()).toHaveAttribute('data-status', 'rewarded')
   await expect(page.getByTestId('city-scene')).toHaveAttribute('data-sky', 'day')
 })
+
+// ── Playtest regressions ───────────────────────────────────────────────────
+
+test('regression: sleep controls — Start only while awake; Wake Up and Cancel Session while asleep', async ({ users }) => {
+  const { page, api } = await carol(users)
+  await api.reset({ electricity: 50 })
+  await page.goto('/city')
+
+  // Awake: only Start Sleep.
+  await expect(page.getByTestId('sleep-start')).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByTestId('sleep-wake')).toHaveCount(0)
+  await expect(page.getByTestId('sleep-cancel')).toHaveCount(0)
+
+  // Asleep: clearly labelled Wake Up + Cancel Session, no Start.
+  await page.getByTestId('sleep-start').click()
+  await expect(page.getByTestId('sleep-wake')).toHaveText('Wake Up')
+  await expect(page.getByTestId('sleep-cancel')).toHaveText('Cancel Session')
+  await expect(page.getByTestId('sleep-start')).toHaveCount(0)
+
+  // Cancel asks first; "Keep sleeping" backs out.
+  await page.getByTestId('sleep-cancel').click()
+  await expect(page.getByTestId('sleep-cancel-dialog')).toContainText('no energy is awarded')
+  await page.getByTestId('sleep-cancel-keep').click()
+  await expect(page.getByTestId('sleep-wake')).toBeVisible()
+
+  // Confirmed cancel → awake again, saved as cancelled.
+  await page.getByTestId('sleep-cancel').click()
+  await page.getByTestId('sleep-cancel-confirm').click()
+  await expect(page.getByTestId('sleep-result')).toHaveText('Session cancelled. No energy was claimed.')
+  await expect(page.getByTestId('sleep-start')).toBeVisible()
+  await expect(page.getByTestId('sleep-wake')).toHaveCount(0)
+  await expect(page.getByTestId('sleep-row').first()).toHaveAttribute('data-status', 'cancelled')
+
+  // A session started elsewhere (another tab/device) switches this page to the asleep controls.
+  await api.act('startSleep')
+  await expect(page.getByTestId('sleep-wake')).toBeVisible()
+  await expect(page.getByTestId('sleep-start')).toHaveCount(0)
+  await api.act('cancelSleep')
+  await expect(page.getByTestId('sleep-start')).toBeVisible()
+})
+
+test('regression: history dates follow the (dev) simulated clock and say so', async ({ users }) => {
+  const { page, api } = await carol(users)
+  await api.reset()
+  await api.act('startSleep')
+  await api.advance(90)
+  await api.act('wakeUp')
+  const s = await api.inspect()
+  const tz = (s.city as unknown as { timezone: string }).timezone
+
+  await page.goto('/city')
+  await expect(page.getByTestId('sleep-row').first()).toBeVisible({ timeout: 20_000 })
+  // The newest row is the session just finished, dated by the simulated clock in the city's zone.
+  const wakeAt = (s.city as unknown as { lastSettledAt: number }).lastSettledAt
+  const expected = await page.evaluate(
+    ([t, zone]) => new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: zone as string }).format(new Date(t as number)),
+    [wakeAt, tz],
+  )
+  await expect(page.getByTestId('sleep-row-day').first()).toHaveText(expected)
+  // Dev builds explain why that can be far from today.
+  await expect(page.getByTestId('sleep-history-dev-note')).toContainText('simulated test clock')
+  await expect(page.getByTestId('dev-clock-now')).toBeVisible()
+})
