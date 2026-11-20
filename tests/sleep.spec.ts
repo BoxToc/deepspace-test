@@ -4,14 +4,17 @@
  * Uses the dev-only simulated clock (devAdvanceClock) to fast-forward time;
  * every reward still goes through the real startSleep / wakeUp actions.
  *
- * Re-runnable: each test first cancels any open session and jumps the
- * player's clock 2 days ahead, then aligns to a known LOCAL time in the
- * city's own time zone, so daily-limit and midnight cases are deterministic.
+ * Re-runnable: each test first cancels any open session, jumps the player's
+ * clock 2 days ahead, and resets the economy to a known state (0 ⚡, so
+ * nothing is consumed while time is fast-forwarded), then aligns to a known
+ * LOCAL time in the city's own zone, so daily-limit and midnight cases are
+ * deterministic.
  *
  * Runs as "Carol" only, serially, so no other spec touches this city.
  */
 import { test, expect, findTestAccountByName } from 'deepspace/testing'
 import type { Page } from '@playwright/test'
+import { client, expectConsistentHistory, type Res, type Session } from './helpers/game'
 
 test.describe.configure({ mode: 'serial' })
 
@@ -22,87 +25,6 @@ try {
   hasCarol = false
 }
 test.skip(!hasCarol, 'Needs a test account named "Carol" (npx deepspace test accounts create --name Carol ...).')
-
-type Res<T = Record<string, unknown>> = { success: boolean; code?: string; error?: string; data: T }
-type Session = {
-  status: string
-  recordedMinutes: number
-  creditedMinutes: number
-  energyAwarded: number
-  energyStored: number
-  rewardDay: string
-  rewardStatus: string
-}
-type City = { electricity: number; timezone: string; activeSessionId: string; lastRewardDay: string }
-
-/**
- * Revisions (newest first) must be strictly decreasing — no duplicates — and
- * the city must be AT the newest one, i.e. no older state is showing.
- * (Gaps are harmless; local dev data from before this scheme has one.)
- */
-function expectConsistentHistory(s: Inspection) {
-  const revs = s.revisions.map((r) => r.revision)
-  for (let i = 1; i < revs.length; i++) expect(revs[i - 1]).toBeGreaterThan(revs[i])
-  expect(s.city.revision).toBe(revs[0] ?? 0)
-}
-
-function client(page: Page) {
-  let token: string | null = null
-  async function call<T = Record<string, unknown>>(name: string, params: Record<string, unknown> = {}, auth = true) {
-    if (auth && !token) {
-      const r = await page.request.post('/api/auth/token', { headers: { 'Content-Type': 'application/json' } })
-      token = ((await r.json()) as { token: string }).token
-    }
-    const res = await page.request.post(`/api/actions/${name}`, {
-      headers: auth ? { Authorization: `Bearer ${token}` } : {},
-      data: params,
-    })
-    return { status: res.status(), body: (res.status() === 200 ? await res.json() : null) as Res<T> }
-  }
-  const act = async <T = Record<string, unknown>>(name: string, params: Record<string, unknown> = {}) =>
-    (await call<T>(name, params)).body
-  const city = async () => {
-    const r = await act<{ city: { data: City }; serverNow: number }>('initCity', { timezone: 'Europe/London' })
-    expect(r.success, r.error).toBe(true)
-    return { ...r.data.city.data, serverNow: r.data.serverNow }
-  }
-  const advance = async (minutes: number) => {
-    const r = await act('devAdvanceClock', { minutes })
-    expect(r.success, r.error).toBe(true)
-  }
-  /** Fresh state: no open session, last reward ≥ 2 days ago. */
-  const reset = async () => {
-    await city()
-    await act('cancelSleep')
-    await advance(2 * 24 * 60)
-  }
-  /** Move the clock forward to the next HH:00 local time in the city's zone. */
-  const alignTo = async (hour: number) => {
-    const c = await city()
-    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: c.timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-      .formatToParts(new Date(c.serverNow))
-    const h = Number(parts.find((p) => p.type === 'hour')!.value)
-    const m = Number(parts.find((p) => p.type === 'minute')!.value)
-    let diff = (hour * 60 - (h * 60 + m) + 1440) % 1440
-    if (diff === 0) diff = 1440
-    await advance(diff)
-  }
-  /** Server-side state the client can't read (dev-only inspector). */
-  const inspect = async (sessionId?: string) => {
-    const r = await act<Inspection>('devInspect', sessionId ? { sessionId } : {})
-    expect(r.success, r.error).toBe(true)
-    return r.data
-  }
-  return { call, act, city, advance, reset, alignTo, inspect }
-}
-
-type Inspection = {
-  city: City & { revision: number; lastRewardedWakeAt: number }
-  rewards: { sessionId: string; rewardDay: string; energy: number }[]
-  closures: { sessionId: string; kind: string; rewardStatus: string }[]
-  revisions: { revision: number; reason: string }[]
-  session: (Session & { openSlot: string }) | null
-}
 
 async function carol(users: (names: string[]) => Promise<{ page: Page }[]>) {
   const [u] = await users(['Carol'])
@@ -337,7 +259,7 @@ test('recovery also happens through Cancel or the next Start Sleep', async ({ us
 
 test('UI: Start Sleep → (dev clock +8h) → Wake Up shows the reward and history', async ({ users }) => {
   const { page, api } = await carol(users)
-  await api.reset()
+  await api.reset({ electricity: 50 }) // powered, so the sky goes day → night → day
 
   await page.goto('/city')
   await expect(page.getByTestId('sleep-start')).toBeVisible({ timeout: 20_000 })

@@ -26,11 +26,13 @@ export interface CitySceneProps {
   power: Record<BuildingKey, boolean>
   /** Night sky while a sleep session runs. */
   sleeping?: boolean
+  /** Called when a building is clicked / activated with the keyboard. */
+  onSelect?: (building: BuildingKey) => void
 }
 
 const pct = (v: number, total: number) => `${(v / total) * 100}%`
 
-export function CityScene({ levels, power, sleeping = false }: CitySceneProps) {
+export function CityScene({ levels, power, sleeping = false, onSelect }: CitySceneProps) {
   const scene = useMemo(() => buildScene(levels), [levels])
   const { bounds, width: W, height: H } = scene
   const anyPowered = Object.values(power).some(Boolean)
@@ -54,23 +56,42 @@ export function CityScene({ levels, power, sleeping = false }: CitySceneProps) {
     >
       <div className="city-scene__stage" style={{ aspectRatio: `${W} / ${H}` }} role="img" aria-label={label}>
         {scene.nodes.map((node) => (
-          <SceneItem key={node.id} node={node} box={box} power={power} />
+          <SceneItem key={node.id} node={node} box={box} power={power} onSelect={onSelect} />
         ))}
       </div>
     </figure>
   )
 }
 
+/** Click + Enter/Space activation for a building, when selectable. */
+function selectable(building: BuildingKey, onSelect?: (b: BuildingKey) => void) {
+  if (!onSelect) return {}
+  return {
+    role: 'button' as const,
+    tabIndex: 0,
+    'data-selectable': true,
+    onClick: () => onSelect(building),
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        onSelect(building)
+      }
+    },
+  }
+}
+
 function SceneItem({
   node,
   box,
   power,
+  onSelect,
 }: {
   node: SceneNode
   box: (p: Placed) => Record<string, string>
   power: Record<BuildingKey, boolean>
+  onSelect?: (b: BuildingKey) => void
 }) {
-  if (node.kind === 'building') return <BuildingView node={node} box={box} powered={power[node.building]} />
+  if (node.kind === 'building') return <BuildingView node={node} box={box} powered={power[node.building]} onSelect={onSelect} />
 
   const dim = node.owner ? !power[node.owner] : false
   const lit = node.kind === 'detail' && node.light && Object.values(power).some(Boolean)
@@ -88,6 +109,8 @@ function SceneItem({
           data-building="park"
           data-powered={!dim}
           title={`${BUILDINGS.park.label} — ${dim ? 'no power' : 'powered'}`}
+          aria-label={onSelect ? `${BUILDINGS.park.label}: view and upgrade` : undefined}
+          {...selectable('park', onSelect)}
         >
           {dim && (
             <span className="city-badge is-off" style={{ left: '50%', top: '4%' }} aria-hidden>
@@ -104,10 +127,12 @@ function BuildingView({
   node,
   box,
   powered,
+  onSelect,
 }: {
   node: Extract<SceneNode, { kind: 'building' }>
   box: (p: Placed) => Record<string, string>
   powered: boolean
+  onSelect?: (b: BuildingKey) => void
 }) {
   const base = node.layers[0]
   const top = node.layers[node.layers.length - 1]
@@ -127,6 +152,8 @@ function BuildingView({
       data-building={node.building}
       data-powered={powered}
       title={`${name} — ${powered ? 'powered' : 'no power'}`}
+      aria-label={onSelect ? `${name}: view and upgrade` : undefined}
+      {...selectable(node.building, onSelect)}
     >
       {node.layers.map((layer, i) => (
         <Sprite key={i} item={layer} style={rel(layer)} className="city-sprite" />

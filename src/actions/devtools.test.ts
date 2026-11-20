@@ -8,6 +8,7 @@ import type { ActionContext, ActionTools } from 'deepspace/worker'
 import type { Env } from '../../worker'
 import { devAdvanceClock, devGetClock, devInspect, serverNow } from './clock'
 import { devFault, devToolsEnabled } from './devtools'
+import { devSetCity } from './economy'
 
 const fetcher = {} as Fetcher
 const LOCAL = { ALLOW_DEBUG_ROUTES: 'true' } as Env
@@ -43,8 +44,8 @@ describe('dev tools gate', () => {
 
   for (const [name, env] of [['production', PROD], ['production + debug flag', PROD_WITH_DEBUG_FLAG]] as const) {
     it(`${name}: dev actions refuse without touching any data`, async () => {
-      for (const handler of [devAdvanceClock, devGetClock, devInspect]) {
-        expect(await handler(ctx(env, { minutes: 600, sessionId: 'x' }))).toMatchObject({
+      for (const handler of [devAdvanceClock, devGetClock, devInspect, devSetCity]) {
+        expect(await handler(ctx(env, { minutes: 600, sessionId: 'x', coins: 1e9 }))).toMatchObject({
           success: false,
           code: 'dev_tools_disabled',
         })

@@ -2,6 +2,7 @@ import type { ActionHandler } from 'deepspace/worker'
 import type { Env } from '../../worker'
 import { initCity, updateTimezone } from './city'
 import { devAdvanceClock, devGetClock, devInspect } from './clock'
+import { devSetCity, upgradeBuilding } from './economy'
 import { cancelSleep, startSleep, wakeUp } from './sleep'
 
 /**
@@ -15,7 +16,9 @@ export const actions: Record<string, ActionHandler<Env>> = {
   startSleep,
   wakeUp,
   cancelSleep,
+  upgradeBuilding,
   devAdvanceClock,
   devGetClock,
   devInspect,
+  devSetCity,
 }

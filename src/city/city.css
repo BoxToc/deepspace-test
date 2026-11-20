@@ -70,6 +70,29 @@
   pointer-events: none;
 }
 
+/* Selectable buildings: the sprites themselves take the click. */
+[data-selectable] {
+  cursor: pointer;
+  outline: none;
+}
+.city-building[data-selectable] .city-sprite,
+.city-park[data-selectable] {
+  pointer-events: auto;
+}
+.city-park[data-selectable] {
+  /* Only the fountain's top face, not the whole tile box. */
+  clip-path: polygon(50% 0, 100% 33%, 50% 67%, 0 33%);
+}
+[data-selectable]:hover .city-sprite,
+[data-selectable]:focus-visible .city-sprite {
+  filter: brightness(1.08);
+}
+[data-selectable]:focus-visible {
+  outline: 2px solid var(--color-primary, #8b8cf8);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
 .city-building {
   position: absolute;
   transition: filter 700ms ease;

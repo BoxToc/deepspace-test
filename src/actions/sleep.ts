@@ -24,6 +24,7 @@
 
 import type { ActionContext, ActionHandler, ActionResult, ActionTools } from 'deepspace/worker'
 import type { Env } from '../../worker'
+import { settle } from '../game/economy'
 import { chargeBattery, evaluateWake, recordedMinutes } from '../game/sleep'
 import type { EnergyRewardData, RewardStatus, SleepSessionData } from '../game/types'
 import { findMutation, loadCity, mutateCity } from './city-store'
@@ -277,10 +278,20 @@ async function finishSession(
     decide: (city) => {
       if (city.activeSessionId !== sessionId) return { kind: 'noop', result: null }
       if (!rewarded) return { kind: 'change', patch: { activeSessionId: '' }, meta: { energyStored: 0 }, result: { energyStored: 0 } }
-      const charge = chargeBattery(city.electricity, c.energyAwarded, city.buildings?.power ?? 1)
+      // Settle consumption/coins up to the wake-up first, so the new energy
+      // can't retroactively power the hours before it arrived.
+      const settled = settle(city, Math.max(c.endedAt, city.lastSettledAt || 0))
+      const charge = chargeBattery(settled.electricity, c.energyAwarded, city.buildings?.power ?? 1)
       return {
         kind: 'change',
-        patch: { activeSessionId: '', electricity: charge.electricity, lastRewardDay: c.rewardDay, lastRewardedWakeAt: c.endedAt },
+        patch: {
+          activeSessionId: '',
+          electricity: charge.electricity,
+          coins: settled.coins,
+          lastSettledAt: settled.lastSettledAt,
+          lastRewardDay: c.rewardDay,
+          lastRewardedWakeAt: c.endedAt,
+        },
         meta: { energyStored: charge.stored },
         result: { energyStored: charge.stored },
       }
