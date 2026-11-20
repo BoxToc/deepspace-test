@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
 import { useQuery } from 'deepspace'
 import { Button } from '@/components/ui'
 import { callAction } from '@/lib/actions'
-import { formatEnergy, formatMinutes, REWARD_LABELS } from '@/game/format'
+import { formatDayKey, formatEnergy, formatMinutes, REWARD_LABELS, sessionDayKey } from '@/game/format'
 import { recordedMinutes } from '@/game/sleep'
 import type { CityData, SleepSessionData } from '@/game/types'
 
@@ -102,7 +102,7 @@ function SleepHistory({ sessions }: { sessions: { recordId: string; data: SleepS
       <ul className="mt-2 divide-y divide-border text-sm" data-testid="sleep-history">
         {sessions.map(({ recordId, data: s }) => (
           <li key={recordId} className="flex flex-wrap items-baseline justify-between gap-2 py-2" data-testid="sleep-row" data-status={s.rewardStatus}>
-            <span className="text-foreground">{s.rewardDay || new Date(s.startedAt).toLocaleDateString()}</span>
+            <span className="text-foreground" data-testid="sleep-row-day">{formatDayKey(sessionDayKey(s))}</span>
             <span className="text-muted-foreground">
               recorded {formatMinutes(s.recordedMinutes)}
               {s.rewardStatus === 'rewarded' && <> · credited {formatMinutes(s.creditedMinutes)}</>}

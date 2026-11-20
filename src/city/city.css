@@ -1,0 +1,138 @@
+/*
+ * DreamGrid city scene. Sprites are absolutely positioned in percent of the
+ * stage (see CityScene.tsx); everything here is presentation only.
+ */
+
+.city-scene {
+  --sky-top: #9fd3ee;
+  --sky-bottom: #d9f0f7;
+  --lamp: 255 214 120;
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 1rem;
+  padding: clamp(0.75rem, 3vw, 2rem) clamp(0.25rem, 2vw, 1.5rem) clamp(1rem, 3vw, 2rem);
+  background:
+    radial-gradient(120% 70% at 50% 110%, rgb(255 255 255 / 0.35), transparent 60%),
+    linear-gradient(180deg, var(--sky-top), var(--sky-bottom));
+  transition: background 900ms ease;
+  isolation: isolate;
+}
+
+/* Out of power: an overcast dusk. */
+.city-scene[data-sky='dark'] {
+  --sky-top: #5c6b7a;
+  --sky-bottom: #8a96a1;
+}
+
+/* Sleeping: night sky with a few stars; powered lamps glow brighter. */
+.city-scene[data-sky='night'] {
+  --sky-top: #0f1b3d;
+  --sky-bottom: #2a3a6b;
+}
+.city-scene[data-sky='night']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 18%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 28% 9%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 47% 22%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 66% 12%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 83% 26%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 91% 8%, #fff 50%, transparent 51%);
+  opacity: 0.8;
+}
+
+.city-scene__stage {
+  position: relative;
+  width: 100%;
+  max-width: 820px;
+  margin-inline: auto;
+}
+
+.city-sprite {
+  position: absolute;
+  max-width: none;
+  user-select: none;
+  pointer-events: none;
+  transition: filter 700ms ease;
+}
+
+.city-sprite.is-unpowered,
+.city-building.is-unpowered {
+  filter: grayscale(0.85) brightness(0.62) saturate(0.7);
+}
+
+.city-park {
+  position: absolute;
+  pointer-events: none;
+}
+
+.city-building {
+  position: absolute;
+  transition: filter 700ms ease;
+}
+.city-building.is-powered {
+  filter: drop-shadow(0 0 6px rgb(var(--lamp) / 0.28));
+}
+
+/* Floating status badge above each building. */
+.city-badge {
+  position: absolute;
+  translate: -50% -100%;
+  display: grid;
+  place-items: center;
+  width: clamp(16px, 3.2vw, 26px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  pointer-events: none;
+}
+.city-badge:empty {
+  display: none;
+}
+.city-badge svg {
+  width: 62%;
+  height: 62%;
+}
+.city-badge.is-off {
+  background: rgb(30 30 36 / 0.85);
+  color: #ffb4a8;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+}
+.city-badge.is-on {
+  background: rgb(255 200 80 / 0.95);
+  color: #4a3200;
+  box-shadow: 0 0 10px rgb(var(--lamp) / 0.8);
+  animation: city-pulse 2.4s ease-in-out infinite;
+}
+
+/* Street-lamp light, only rendered when the city has power. */
+.city-lamp-glow {
+  position: absolute;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgb(var(--lamp) / 0.95) 0 22%, rgb(var(--lamp) / 0.35) 45%, transparent 70%);
+  pointer-events: none;
+}
+.city-scene[data-sky='night'] .city-lamp-glow {
+  scale: 1.6;
+}
+
+@keyframes city-pulse {
+  50% {
+    box-shadow: 0 0 18px rgb(var(--lamp) / 1);
+    scale: 1.08;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .city-badge.is-on {
+    animation: none;
+  }
+  .city-sprite,
+  .city-building,
+  .city-scene {
+    transition: none;
+  }
+}

@@ -341,9 +341,12 @@ test('UI: Start Sleep → (dev clock +8h) → Wake Up shows the reward and histo
 
   await page.goto('/city')
   await expect(page.getByTestId('sleep-start')).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByTestId('city-scene')).toHaveAttribute('data-sky', 'day')
   await page.getByTestId('sleep-start').click()
   await expect(page.getByTestId('sleep-wake')).toBeVisible()
   await expect(page.getByTestId('sleep-status')).toContainText('Sleeping since')
+  // The town goes to night while you sleep.
+  await expect(page.getByTestId('city-scene')).toHaveAttribute('data-sky', 'night')
 
   await page.getByTestId('dev-advance-480').click()
   await expect(page.getByTestId('sleep-elapsed')).toHaveText(/^8h \d+m$/)
@@ -352,4 +355,5 @@ test('UI: Start Sleep → (dev clock +8h) → Wake Up shows the reward and histo
   await expect(page.getByTestId('sleep-result')).toContainText('+80 ⚡')
   await expect(page.getByTestId('sleep-start')).toBeVisible()
   await expect(page.getByTestId('sleep-row').first()).toHaveAttribute('data-status', 'rewarded')
+  await expect(page.getByTestId('city-scene')).toHaveAttribute('data-sky', 'day')
 })
