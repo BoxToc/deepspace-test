@@ -274,7 +274,6 @@ async function finishSession(
   const applied = await mutateCity<{ energyStored: number } | null>(tools, userId, {
     reason: 'close_session',
     refId: sessionId,
-    skipMaterialize: fault === 'after_journal',
     decide: (city) => {
       if (city.activeSessionId !== sessionId) return { kind: 'noop', result: null }
       if (!rewarded) return { kind: 'change', patch: { activeSessionId: '' }, meta: { energyStored: 0 }, result: { energyStored: 0 } }
@@ -288,7 +287,7 @@ async function finishSession(
     },
   })
   if (!applied.success) return applied
-  if (fault === 'after_journal' || fault === 'after_city') return injected(fault)
+  if (fault === 'after_city') return injected(fault)
 
   let energyStored = applied.data.result?.energyStored
   if (energyStored === undefined) {

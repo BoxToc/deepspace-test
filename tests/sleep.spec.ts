@@ -35,6 +35,17 @@ type Session = {
 }
 type City = { electricity: number; timezone: string; activeSessionId: string; lastRewardDay: string }
 
+/**
+ * Revisions (newest first) must be strictly decreasing — no duplicates — and
+ * the city must be AT the newest one, i.e. no older state is showing.
+ * (Gaps are harmless; local dev data from before this scheme has one.)
+ */
+function expectConsistentHistory(s: Inspection) {
+  const revs = s.revisions.map((r) => r.revision)
+  for (let i = 1; i < revs.length; i++) expect(revs[i - 1]).toBeGreaterThan(revs[i])
+  expect(s.city.revision).toBe(revs[0] ?? 0)
+}
+
 function client(page: Page) {
   let token: string | null = null
   async function call<T = Record<string, unknown>>(name: string, params: Record<string, unknown> = {}, auth = true) {
@@ -89,6 +100,7 @@ type Inspection = {
   city: City & { revision: number; lastRewardedWakeAt: number }
   rewards: { sessionId: string; rewardDay: string; energy: number }[]
   closures: { sessionId: string; kind: string; rewardStatus: string }[]
+  revisions: { revision: number; reason: string }[]
   session: (Session & { openSlot: string }) | null
 }
 
@@ -210,6 +222,8 @@ test('concurrent Start Sleep opens one session; concurrent Wake Up pays once', a
   }
 
   const state = await api.inspect(sessionId)
+  expectConsistentHistory(state)
+  expect(state.revisions.filter((r) => r.reason === 'close_session').length).toBeGreaterThanOrEqual(1)
   expect(state.rewards).toHaveLength(1)
   expect(state.closures).toHaveLength(1)
   expect(state.city.activeSessionId).toBe('')
@@ -241,6 +255,7 @@ test('Wake Up vs Cancel race: a rewarded session is never cancelled', async ({ u
 
     const sessionId = (wake.success ? wake : cancel).data.sessionId
     const s = await api.inspect(sessionId)
+    expectConsistentHistory(s)
     expect(s.closures).toHaveLength(1)
     expect(s.closures[0].kind).toBe(winner)
     if (winner === 'wake') {
@@ -260,7 +275,7 @@ test('Wake Up vs Cancel race: a rewarded session is never cancelled', async ({ u
 
 // Partial server failure: the action stops after a given step, as if the
 // worker crashed. The next request must finish the job exactly once.
-for (const fault of ['after_closure', 'after_reward', 'after_journal', 'after_city'] as const) {
+for (const fault of ['after_closure', 'after_reward', 'after_city'] as const) {
   test(`recovers from a crash ${fault.replace('_', ' ')}: reward applied exactly once`, async ({ users }) => {
     const { api } = await carol(users)
     await api.reset()

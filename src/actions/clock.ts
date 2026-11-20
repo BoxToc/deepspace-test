@@ -10,6 +10,7 @@
 
 import type { ActionHandler, ActionTools } from 'deepspace/worker'
 import type { Env } from '../../worker'
+import { loadCity } from './city-store'
 import { devToolsEnabled } from './devtools'
 import { fail, ok } from './results'
 
@@ -68,18 +69,21 @@ export const devGetClock: ActionHandler<Env> = async ({ userId, tools, env }) =>
 export const devInspect: ActionHandler<Env> = async ({ userId, params, tools, env }) => {
   if (!devToolsEnabled(env)) return disabled()
   const sessionId = typeof params.sessionId === 'string' ? params.sessionId : ''
-  const [city, rewards, closures, session] = await Promise.all([
-    tools.query('cities', { where: { userId }, limit: 1 }),
+  const [city, rewards, closures, session, mutations] = await Promise.all([
+    loadCity(tools, userId),
     tools.query('energy_rewards', { where: sessionId ? { userId, sessionId } : { userId }, limit: 50 }),
     tools.query('session_closures', { where: sessionId ? { userId, sessionId } : { userId }, limit: 50 }),
     sessionId ? tools.get('sleep_sessions', sessionId) : Promise.resolve(null),
+    tools.query('city_mutations', { where: { userId }, orderBy: 'revision', orderDir: 'desc', limit: 50 }),
   ])
   const rows = <T,>(r: { success: boolean; data?: { records: { data: T }[] } }) =>
     r.success && r.data ? r.data.records.map((x) => x.data) : []
   return ok({
-    city: rows(city)[0] ?? null,
+    city: city.success ? (city.data?.data ?? null) : null,
     rewards: rows(rewards),
     closures: rows(closures),
+    /** Latest committed revisions, newest first. */
+    revisions: rows(mutations).map((m) => ({ revision: Number(m.revision), reason: String(m.reason) })),
     session:
       session && session.success && (session.data.record.data as { userId?: string }).userId === userId
         ? session.data.record.data

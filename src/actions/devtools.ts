@@ -19,9 +19,9 @@ export function devToolsEnabled(env: GateEnv): boolean {
 }
 
 /** Where a dev request asks the action to stop, simulating a crash. */
-export type FaultPoint = 'after_closure' | 'after_reward' | 'after_journal' | 'after_city'
+export type FaultPoint = 'after_closure' | 'after_reward' | 'after_city'
 
-const FAULT_POINTS: readonly FaultPoint[] = ['after_closure', 'after_reward', 'after_journal', 'after_city']
+const FAULT_POINTS: readonly FaultPoint[] = ['after_closure', 'after_reward', 'after_city']
 
 /** DEV ONLY: the fault point requested via `params.__devFault`, else null. Always null in production. */
 export function devFault(env: GateEnv, params: Record<string, unknown>): FaultPoint | null {

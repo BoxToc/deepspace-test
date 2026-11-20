@@ -8,7 +8,13 @@ import type { ActionTools } from 'deepspace/worker'
 
 type Row = { recordId: string; data: Record<string, unknown> }
 
-export function createFakeTools(uniqueOn: Record<string, string[]>, opts: { failUpdates?: (collection: string) => boolean } = {}) {
+export interface FakeToolsOptions {
+  failUpdates?: (collection: string) => boolean
+  /** Runs before an insert is applied — tests use it to hold one writer back. */
+  beforeCreate?: (collection: string, data: Record<string, unknown>) => Promise<void> | void
+}
+
+export function createFakeTools(uniqueOn: Record<string, string[]>, opts: FakeToolsOptions = {}) {
   const tables = new Map<string, Row[]>()
   let seq = 0
   const table = (c: string) => tables.get(c) ?? (tables.set(c, []), tables.get(c)!)
@@ -20,6 +26,7 @@ export function createFakeTools(uniqueOn: Record<string, string[]>, opts: { fail
   const tools = {
     async create(collection: string, data: Record<string, unknown>, recordId?: string) {
       await tick()
+      await opts.beforeCreate?.(collection, data)
       const keys = uniqueOn[collection]
       if (keys && table(collection).some((r) => keys.every((k) => r.data[k] === data[k]))) {
         return { success: false, error: `Duplicate in ${collection}` }
@@ -46,9 +53,18 @@ export function createFakeTools(uniqueOn: Record<string, string[]>, opts: { fail
       const row = table(collection).find((r) => r.recordId === recordId)
       return row ? { success: true, data: { record: clone(row) } } : { success: false, error: 'Record not found' }
     },
-    async query(collection: string, options: { where?: Record<string, unknown>; limit?: number } = {}) {
+    async query(
+      collection: string,
+      options: { where?: Record<string, unknown>; orderBy?: string; orderDir?: 'asc' | 'desc'; limit?: number } = {},
+    ) {
       await tick()
-      const rows = table(collection).filter((r) => matches(r, options.where)).slice(0, options.limit ?? 100)
+      let rows = table(collection).filter((r) => matches(r, options.where))
+      if (options.orderBy) {
+        const k = options.orderBy
+        const dir = options.orderDir === 'desc' ? -1 : 1
+        rows = [...rows].sort((a, b) => ((a.data[k] as number) > (b.data[k] as number) ? dir : -dir))
+      }
+      rows = rows.slice(0, options.limit ?? 100)
       return { success: true, data: { records: clone(rows), count: rows.length } }
     },
   }

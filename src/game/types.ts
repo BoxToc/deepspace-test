@@ -74,3 +74,20 @@ export interface SleepSessionData extends Record<string, unknown> {
   rewardDay: string
   rewardStatus: RewardStatus
 }
+
+/**
+ * One committed city revision (append-only; see src/actions/city-store.ts).
+ * The current city = base `cities` row overlaid with the latest `next`.
+ */
+export interface CityMutationData extends Record<string, unknown> {
+  userId: string
+  /** The revision this row creates (the base row is revision 0). */
+  revision: number
+  reason: string
+  /** Related record (e.g. the sleep session) — lets replays find this entry. */
+  refId: string
+  /** Complete city state at this revision. */
+  next: Partial<CityData>
+  /** Extra facts decided at commit time (e.g. energyStored). */
+  meta: Record<string, unknown>
+}
