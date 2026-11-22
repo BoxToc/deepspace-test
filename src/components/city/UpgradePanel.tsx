@@ -80,11 +80,16 @@ export function UpgradePanel({
           </div>
         )}
 
-        {message && (
-          <p className={`text-sm ${message.tone === 'error' ? 'text-destructive' : 'text-foreground'}`} data-testid={`upgrade-${message.tone === 'error' ? 'error' : 'result'}`}>
-            {message.text}
-          </p>
-        )}
+        <div aria-live="polite" role="status">
+          {message && (
+            <p
+              className={`text-sm ${message.tone === 'error' ? 'text-destructive' : 'font-medium text-emerald-400'}`}
+              data-testid={`upgrade-${message.tone === 'error' ? 'error' : 'result'}`}
+            >
+              {message.text}
+            </p>
+          )}
+        </div>
       </div>
     </Modal>
   )
