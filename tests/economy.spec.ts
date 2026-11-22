@@ -158,7 +158,10 @@ test('upgrade from the scene: building grows, progress survives refresh, other t
   await expect(other.getByTestId('building-level-power')).toHaveText('Level 1/3')
 
   const stack = page.locator('[data-testid="city-building"][data-building="power"] img')
-  await expect(stack).toHaveCount(2) // ground floor + roof
+  const look = () => stack.evaluateAll((imgs) => imgs.map((i) => (i as HTMLImageElement).src.split('/').pop()))
+  // Each level has its own art (rendered sprite, or the Kenney stack fallback).
+  await expect(stack.first()).toBeVisible()
+  const level1Look = await look()
 
   // Click the Power Station in the town itself.
   await page.locator('[data-testid="city-building"][data-building="power"]').click()
@@ -170,7 +173,9 @@ test('upgrade from the scene: building grows, progress survives refresh, other t
   await expect(page.getByTestId('upgrade-result')).toHaveText('Power Station upgraded to level 2!')
   await expect(page.getByTestId('upgrade-level')).toHaveText('2')
 
-  await expect(stack).toHaveCount(3) // + one floor
+  // Level 2 has its own look.
+  await expect.poll(look).not.toEqual(level1Look)
+  const level2Look = await look()
   await expect(page.getByTestId('city-electricity')).toContainText('/ 200 ⚡')
   await expect(page.getByTestId('city-coins')).toHaveText('50')
 
@@ -182,7 +187,7 @@ test('upgrade from the scene: building grows, progress survives refresh, other t
   await page.reload()
   await expect(page.getByTestId('building-level-power')).toHaveText('Level 2/3', { timeout: 20_000 })
   await expect(page.getByTestId('city-coins')).toHaveText('50')
-  await expect(page.locator('[data-testid="city-building"][data-building="power"] img')).toHaveCount(3)
+  await expect.poll(look).toEqual(level2Look)
 })
 
 // ── Playtest regressions ───────────────────────────────────────────────────

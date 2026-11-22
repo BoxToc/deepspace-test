@@ -4,7 +4,7 @@ import { isCityPowered } from '@/game/power'
 import { cellCenter, placeBuilding, placeTile } from './iso'
 import { BUILDING_PLACEMENTS, DETAILS, GRID, groundAt } from './layout'
 import { buildingsInScene, buildScene } from './scene'
-import { ART } from './sprites'
+import { ART, artForLevel, isSingleArt, USE_POWER_STATION_ART, type LevelArt } from './sprites'
 
 const level1 = { power: 1, residential: 1, shop: 1, park: 1 }
 describe('isometric geometry', () => {
@@ -21,14 +21,57 @@ describe('isometric geometry', () => {
 
   it('stacks one floor per level above the ground floor, roof on top', () => {
     for (const level of [1, 2, 3]) {
-      const layers = placeBuilding(ART.shop, 0, 0, level)
+      const layers = placeBuilding(artForLevel(ART.shop, level), 0, 0)
       expect(layers).toHaveLength(level + 1)
-      expect(layers[0].sprite).toBe('shopGround')
+      expect(layers[0].sprite).toMatch(/^shopGround/)
       expect(layers.at(-1)!.sprite).toBe('shopRoof')
       const floors = layers.slice(1, -1)
       floors.forEach((f, i) => expect(layers[0].top - f.top).toBe(34 * (i + 1)))
       // Roof sits higher as the building grows.
-      if (level > 1) expect(layers.at(-1)!.top).toBeLessThan(placeBuilding(ART.shop, 0, 0, level - 1).at(-1)!.top)
+      if (level > 1) expect(layers.at(-1)!.top).toBeLessThan(placeBuilding(artForLevel(ART.shop, level - 1), 0, 0).at(-1)!.top)
+    }
+  })
+
+  it('places a single-sprite building with its lot centre on the cell centre', () => {
+    const [layer] = placeBuilding({ sprite: 'powerStation1', anchorY: 98 }, 1, 0)
+    expect(layer).toMatchObject({ sprite: 'powerStation1', left: 0, top: 33 - 98, w: 132, h: 164 })
+    // Same lot level as a Kenney ground floor: its base bottom tip lands on the same row.
+    const kenney = placeBuilding(artForLevel(ART.houseA, 1), 1, 0)[0]
+    expect(layer.top + layer.h).toBe(kenney.top + kenney.h)
+  })
+})
+
+describe('upgrade stages', () => {
+  const look = (a: LevelArt) => JSON.stringify(a)
+
+  it('gives every building a different look at each level, not just more floors', () => {
+    for (const [key, art] of Object.entries(ART)) {
+      for (let level = 2; level <= 3; level++) {
+        const prev = artForLevel(art, level - 1)
+        const next = artForLevel(art, level)
+        expect(look(next), `${key} L${level}`).not.toBe(look(prev))
+        if (!isSingleArt(prev) && !isSingleArt(next)) {
+          // A Kenney stack must also change its facade or roof, not only its height.
+          const restyled = prev.ground !== next.ground || prev.roof !== next.roof || next.floors.some((f) => !prev.floors.includes(f))
+          if (key !== 'power') expect(restyled, `${key} L${level}`).toBe(true)
+        }
+      }
+    }
+  })
+
+  it('clamps levels to the art that exists', () => {
+    expect(artForLevel(ART.shop, 0)).toBe(ART.shop[0])
+    expect(artForLevel(ART.shop, 9)).toBe(ART.shop[2])
+  })
+
+  it('uses the rendered Power Station art at every level (Kenney stack as fallback)', () => {
+    for (const level of [1, 2, 3]) {
+      const art = artForLevel(ART.power, level)
+      expect(isSingleArt(art)).toBe(USE_POWER_STATION_ART)
+      // Every power sprite sits on the same lot: base bottom tip on the same row as a Kenney ground floor.
+      const [base] = placeBuilding(art, 1, 1)
+      const kenney = placeBuilding(artForLevel(ART.houseA, 1), 1, 1)[0]
+      expect(base.top + base.h, `power L${level}`).toBe(kenney.top + kenney.h)
     }
   })
 })

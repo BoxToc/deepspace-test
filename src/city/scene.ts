@@ -8,7 +8,7 @@ import { BUILDING_KEYS, type BuildingKey } from '@/game/config'
 import type { BuildingLevels } from '@/game/types'
 import { boundsOf, placeBuilding, placeDetail, placeTile, type Bounds, type Placed } from './iso'
 import { BUILDING_PLACEMENTS, DETAILS, GRID, PARK_CELL, groundAt } from './layout'
-import { ART } from './sprites'
+import { ART, artForLevel } from './sprites'
 
 export type SceneNode =
   | { kind: 'ground'; id: string; item: Placed; owner?: BuildingKey }
@@ -43,7 +43,7 @@ export function buildScene(levels: BuildingLevels): Scene {
       kind: 'building',
       id: `b-${b.art}`,
       building: b.building,
-      layers: placeBuilding(ART[b.art], b.c, b.r, levels[b.building] ?? 1, b.flip),
+      layers: placeBuilding(artForLevel(ART[b.art], levels[b.building] ?? 1), b.c, b.r, b.flip),
     }),
   )
 

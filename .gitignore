@@ -13,3 +13,8 @@ src/router.ts
 src/modals.tsx
 .claude/launch.json
 .claude/worktrees
+
+# Sprite pipeline output (regenerate with tools/sprite-pipeline) and local secrets
+art-source/renders/
+art-source/compare/
+.env.local

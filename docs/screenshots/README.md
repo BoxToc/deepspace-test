@@ -21,3 +21,15 @@ The level 2/3 and unpowered shots use the dev-only `?preview=` / `?level=` switc
 | `phase4-mobile-upgrade-panel.png` | The upgrade panel on a 390 px phone |
 
 The Phase 4 shots are from local dev, so they include the dev-only simulated-clock panel, which production builds don't have.
+
+## Phase 5 — Power Station art and building upgrade stages
+
+| File | What it shows |
+|---|---|
+| `power-station-progression.png` | The Power Station at 2×: generator building → electrical substation → power complex, between Kenney neighbours. Original art, rendered in the Kenney style by `tools/sprite-pipeline` |
+| `town-power-l1.png` / `town-power-l2.png` / `town-power-l3.png` | The Power Station at levels 1, 2 and 3 in the town; everything else stays at level 1 |
+| `town-power-l3-unpowered.png` | Level 3 out of power: dimmed, with "no power" badges |
+| `town-power-l3-phone.png` | Level 3 at 390 px phone width |
+| `town-all-l3.png` | Every building at level 3: power complex, department store, three-storey houses (Kenney upgrade stages) |
+
+Captured from local dev. The in-town levels were set on a test account's local city. The all-level-3 and unpowered shots use the dev-only `?level=` / `?preview=` switch.
