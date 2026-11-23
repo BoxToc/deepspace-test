@@ -42,7 +42,9 @@ test('the park badge is fully visible when the town has no power (regression)', 
 })
 
 test('town buildings are reachable as buttons by assistive tech and the keyboard', async ({ users }) => {
-  const { page } = await bob(users)
+  const { page, api } = await bob(users)
+  // Level 1 everywhere, so every building has an Upgrade button.
+  await api.reset({ electricity: 100 })
   await openCity(page)
   await expect(page.getByTestId('city-scene').locator('.city-scene__stage')).toHaveAttribute('role', 'group')
   for (const name of ['Power Station', 'Houses', 'Shop', 'Park']) {
@@ -111,4 +113,50 @@ test('feedback: a rewarded wake-up is celebrated, then the panel explains the ne
   await expect(result).toContainText('⚡')
   // Within 4 hours of that wake-up, starting again would not earn: say so before they try.
   await expect(page.getByTestId('sleep-readiness')).toHaveAttribute('data-kind', 'cooldown')
+})
+
+test('a successful upgrade is celebrated in the town once its panel closes', async ({ users }) => {
+  const { page, api } = await bob(users)
+  await api.reset({ electricity: 100, coins: 150 })
+  await openCity(page)
+  const shop = page.locator('[data-testid="city-building"][data-building="shop"]')
+  await shop.click()
+  await page.getByTestId('upgrade-button').click()
+  await expect(page.getByTestId('upgrade-result')).toHaveText('Shop upgraded to level 2!')
+  // Nothing plays behind the open panel…
+  await expect(page.locator('[data-celebrating]')).toHaveCount(0)
+  await page.getByTestId('upgrade-see-town').click()
+  // …then the upgraded building celebrates, briefly.
+  await expect(shop).toHaveAttribute('data-celebrating', 'true')
+  await expect(shop.getByTestId('city-celebration')).toBeAttached()
+  await expect(page.locator('[data-celebrating]')).toHaveCount(0, { timeout: 5000 })
+  // Closing a panel without upgrading celebrates nothing.
+  await shop.click()
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(300)
+  await expect(page.locator('[data-celebrating]')).toHaveCount(0)
+})
+
+test('town life respects reduced motion: people stand still, no cars, no animations', async ({ users }) => {
+  const { page, api } = await bob(users)
+  await api.reset({ electricity: 100 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await openCity(page)
+  const life = page.getByTestId('city-life')
+  await expect(life).toHaveAttribute('data-reduced', 'true')
+  const actors = life.locator('.city-actor')
+  expect(await actors.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.actor))).toEqual([
+    'citizen-0',
+    'citizen-1',
+    'citizen-2',
+    'citizen-3',
+  ])
+  const where = () => actors.evaluateAll((els) => els.map((e) => (e as HTMLElement).style.transform))
+  const before = await where()
+  await page.waitForTimeout(800)
+  expect(await where()).toEqual(before)
+  const running = await page.evaluate(
+    () => document.getAnimations().filter((a) => ((a.effect as KeyframeEffect | null)?.target as Element | null)?.closest('[data-testid="city-scene"]')).length,
+  )
+  expect(running).toBe(0)
 })

@@ -10,10 +10,18 @@ import { boundsOf, placeBuilding, placeDetail, placeTile, type Bounds, type Plac
 import { BUILDING_PLACEMENTS, DETAILS, GRID, PARK_CELL, groundAt } from './layout'
 import { ART, artForLevel } from './sprites'
 
-export type SceneNode =
+/**
+ * `z` is the node's painter's-order stacking index: (c + r) × 100, then ground
+ * < details < building within a cell. Static nodes are already in DOM order;
+ * the explicit z lets moving actors (src/city/life.ts) slot in between.
+ */
+export type SceneNode = { z: number } & (
   | { kind: 'ground'; id: string; item: Placed; owner?: BuildingKey }
-  | { kind: 'detail'; id: string; item: Placed; owner?: BuildingKey; light?: boolean }
+  | { kind: 'detail'; id: string; item: Placed; owner?: BuildingKey; light?: boolean; sway?: number }
   | { kind: 'building'; id: string; building: BuildingKey; layers: Placed[] }
+)
+
+type Unranked = SceneNode extends infer N ? (N extends SceneNode ? Omit<N, 'z'> : never) : never
 
 export interface Scene {
   nodes: SceneNode[]
@@ -26,7 +34,8 @@ const BUILDING_CELLS = new Set(BUILDING_PLACEMENTS.map((b) => `${b.c},${b.r}`))
 
 export function buildScene(levels: BuildingLevels): Scene {
   const ranked: { depth: number; order: number; node: SceneNode }[] = []
-  const add = (c: number, r: number, order: number, node: SceneNode) => ranked.push({ depth: c + r, order: order + c / 100, node })
+  const add = (c: number, r: number, order: number, node: Unranked) =>
+    ranked.push({ depth: c + r, order: order + c / 100, node: { ...node, z: (c + r) * 100 + order * 10 + c } as SceneNode })
 
   for (let c = 0; c < GRID.cols; c++) {
     for (let r = 0; r < GRID.rows; r++) {
@@ -36,7 +45,15 @@ export function buildScene(levels: BuildingLevels): Scene {
     }
   }
   DETAILS.forEach((d, i) =>
-    add(d.c, d.r, 1, { kind: 'detail', id: `d-${i}`, item: placeDetail(d.sprite, d.c, d.r, d.offset, d.flip), owner: d.owner, light: d.light }),
+    add(d.c, d.r, 1, {
+      kind: 'detail',
+      id: `d-${i}`,
+      item: placeDetail(d.sprite, d.c, d.r, d.offset, d.flip),
+      owner: d.owner,
+      light: d.light,
+      // Trees sway, each a little out of step with its neighbours.
+      sway: d.sprite === 'tree' ? i : undefined,
+    }),
   )
   BUILDING_PLACEMENTS.forEach((b) =>
     add(b.c, b.r, 2, {

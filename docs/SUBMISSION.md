@@ -21,7 +21,7 @@ The loop is deliberately small, so every part of it could be finished properly:
 | 2. Sleep | Start / Wake Up / Cancel sessions, server-timed. Energy rewards with anti-farming rules: 1-hour minimum, 10-hour cap, one reward per local day, 4-hour gap between rewards. Time-zone handling |
 | 3. The town | A miniature isometric city made from Kenney CC0 sprites. Painter's-algorithm layering, day, night and out-of-power looks, scales to a 360 px phone |
 | 4. Economy | Electricity consumption, passive coins (including offline time), a park income bonus, building upgrades to level 3, and a live dashboard |
-| 5. Polish | An original 3-level Power Station (generator building → substation → power complex). Visible upgrade stages for every building. First-time onboarding, gameplay feedback, accessibility, mobile, landing page and docs |
+| 5. Polish | An original 3-level Power Station (generator building → substation → power complex). Visible upgrade stages for every building. A living town: citizens, traffic, steam, swaying trees and upgrade celebrations. First-time onboarding, gameplay feedback, accessibility, mobile, landing page and docs |
 
 ## The parts I'm proudest of
 
@@ -60,8 +60,8 @@ Anti-cheat rules are only fair if players know them. The app says *before* you s
 
 ## Quality
 
-- **Vitest unit tests (96)** cover the pure rules: sleep crediting, day boundaries across time zones, settlement, upgrades, scene layout and guidance.
-- **Playwright end-to-end tests (49)** cover concurrency races, crash recovery, economy over simulated time, the town at every level, phone layout, onboarding and keyboard access.
+- **Vitest unit tests (103)** cover the pure rules: sleep crediting, day boundaries across time zones, settlement, upgrades, scene layout, guidance, and the town-life routes (walkers on sidewalks, cars in lanes, cars never meeting).
+- **Playwright end-to-end tests (51)** cover concurrency races, crash recovery, economy over simulated time, the town at every level, phone layout, onboarding, keyboard access, upgrade celebrations and reduced motion.
 - TypeScript strict, ESLint clean.
 
 ## Trade-offs and what I'd do next

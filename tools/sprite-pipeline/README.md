@@ -13,7 +13,7 @@ node tools/sprite-pipeline/compare.mjs <sheet> [--out file.png] [--scale 2]
 | File | Purpose |
 |---|---|
 | `kenney-style.js` | Camera, scale, palette and flat three-tone shading matched to Kenney; primitive helpers |
-| `models/*.js` | Models. Each exports `build()` (a three.js object) and `output` (size and anchor) |
+| `models/*.js` | Models. Each exports `build()` (a three.js object) and `output` (size and anchor). `citizens.js` renders the townspeople sprite sheet (4 people × front/back × 3 walk frames) |
 | `sheets/*.js` | Contact-sheet layouts: Kenney buildings next to generated sprites |
 | `render.mjs` | Model → PNG (default output: `art-source/renders/`, git-ignored) |
 | `compare.mjs` | Side-by-side contact sheet (default output: `art-source/compare/`, git-ignored) |
