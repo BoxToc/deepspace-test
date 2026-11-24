@@ -18,7 +18,9 @@ import { useQuery } from 'deepspace'
 import { Button } from '@/components/ui'
 import { callAction } from '@/lib/actions'
 import { DEV_TOOLS } from '@/hooks/useDevClock'
+import { SLEEP } from '@/game/config'
 import { formatDayKey, formatEnergy, formatMinutes, REWARD_LABELS, sessionDayKey } from '@/game/format'
+import { sleepReadiness } from '@/game/guidance'
 import { selectOwnSessions } from '@/game/ownership'
 import { recordedMinutes } from '@/game/sleep'
 import type { CityData, SleepSessionData } from '@/game/types'
@@ -48,7 +50,7 @@ export function SleepPanel({
   const now = useNow(clockOffsetMs)
   const [busy, setBusy] = useState<Busy>(null)
   const [confirmCancel, setConfirmCancel] = useState(false)
-  const [message, setMessage] = useState<{ tone: 'info' | 'error'; text: string } | null>(null)
+  const [message, setMessage] = useState<{ tone: 'success' | 'info' | 'error'; text: string } | null>(null)
 
   const run = async (kind: Exclude<Busy, null>, action: string) => {
     setBusy(kind)
@@ -58,7 +60,8 @@ export function SleepPanel({
     setConfirmCancel(false)
     if (!res.success) return setMessage({ tone: 'error', text: res.error })
     const s = res.data.session
-    if (kind === 'wake' && s) setMessage({ tone: 'info', text: describeOutcome(s) })
+    if (kind === 'wake' && s) setMessage({ tone: s.rewardStatus === 'rewarded' ? 'success' : 'info', text: describeOutcome(s) })
+    if (kind === 'start') setMessage({ tone: 'info', text: 'Sleep started. Good night! Tap Wake Up when you get up to collect your energy.' })
     if (kind === 'cancel') setMessage({ tone: 'info', text: 'Session cancelled. No energy was claimed.' })
   }
 
@@ -106,17 +109,51 @@ export function SleepPanel({
         </>
       )}
 
-      {message && (
-        <p
-          className={`mt-4 text-sm ${message.tone === 'error' ? 'text-destructive' : 'text-foreground'}`}
-          data-testid={message.tone === 'error' ? 'sleep-error' : 'sleep-result'}
-        >
+      {/* Announced to screen readers; errors interrupt, results wait politely. */}
+      <div aria-live="polite" role="status">
+        {message && message.tone !== 'error' && (
+          <p
+            className={`mt-4 rounded-md px-3 py-2 text-sm ${message.tone === 'success' ? 'border border-amber-400/40 bg-amber-400/10 text-foreground' : 'text-foreground'}`}
+            data-testid="sleep-result"
+            data-tone={message.tone}
+          >
+            {message.text}
+          </p>
+        )}
+      </div>
+      {message?.tone === 'error' && (
+        <p className="mt-4 text-sm text-destructive" role="alert" data-testid="sleep-error">
           {message.text}
         </p>
       )}
 
+      {!sleeping && (
+        <>
+          <ReadinessHint city={city} now={now} />
+          <p className="mt-3 text-xs text-muted-foreground" data-testid="sleep-rules">
+            Tap Start Sleep at bedtime and Wake Up in the morning. Sleep of {SLEEP.minEligibleMinutes / 60} hour or more earns{' '}
+            {SLEEP.energyPerCreditedHour} ⚡ per hour (up to {SLEEP.maxCreditedMinutes / 60} hours), once per day.
+          </p>
+        </>
+      )}
+
       <SleepHistory sessions={sessions.filter((s) => s.data.status !== 'active')} devClockOffsetMs={devClockOffsetMs} />
     </section>
+  )
+}
+
+/** Before starting: will a session started now be able to earn energy? (Display only; the server decides.) */
+function ReadinessHint({ city, now }: { city: CityData; now: number }) {
+  const r = sleepReadiness(city, now)
+  if (r.kind === 'ready') return null
+  const text =
+    r.kind === 'cooldown'
+      ? `You woke up less than ${SLEEP.minHoursBetweenRewards} hours ago. Sleep started before ${new Date(r.until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} won't earn energy.`
+      : "You've already collected today's energy. Your next reward counts when you wake up on a new day, so tonight's sleep still counts."
+  return (
+    <p className="mt-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground" data-testid="sleep-readiness" data-kind={r.kind}>
+      {text}
+    </p>
   )
 }
 
@@ -165,8 +202,9 @@ function describeOutcome(s: SleepSessionData): string {
   const recorded = `Recorded ${formatMinutes(s.recordedMinutes)}`
   if (s.rewardStatus !== 'rewarded') return `${recorded}. ${REWARD_LABELS[s.rewardStatus]} — no energy this time.`
   const lost = s.energyAwarded - s.energyStored
-  const battery = lost > 0 ? ` (${formatEnergy(lost)} ⚡ didn't fit in your battery)` : ''
-  return `${recorded}, credited ${formatMinutes(s.creditedMinutes)}: +${formatEnergy(s.energyAwarded)} ⚡${battery}.`
+  const gain = `+${formatEnergy(s.energyAwarded)} ⚡ earned`
+  const battery = lost > 0 ? ` (${formatEnergy(lost)} ⚡ didn't fit in your battery)` : ' and stored in your battery'
+  return `${gain}${battery}. ${recorded}, credited ${formatMinutes(s.creditedMinutes)}.`
 }
 
 /** Re-render every 15 s with the (possibly simulated) current time. */

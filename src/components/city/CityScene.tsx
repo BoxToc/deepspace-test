@@ -54,7 +54,8 @@ export function CityScene({ levels, power, sleeping = false, onSelect }: CitySce
       data-testid="city-scene"
       data-powered={anyPowered}
     >
-      <div className="city-scene__stage" style={{ aspectRatio: `${W} / ${H}` }} role="img" aria-label={label}>
+      {/* A labelled group, not role="img": an image role would hide the building buttons inside it from assistive tech. */}
+      <div className="city-scene__stage" style={{ aspectRatio: `${W} / ${H}` }} role="group" aria-label={label}>
         {scene.nodes.map((node) => (
           <SceneItem key={node.id} node={node} box={box} power={power} onSelect={onSelect} />
         ))}
@@ -112,6 +113,8 @@ function SceneItem({
           aria-label={onSelect ? `${BUILDINGS.park.label}: view and upgrade` : undefined}
           {...selectable('park', onSelect)}
         >
+          {/* The click target is only the fountain's top face; the badge and focus ring stay unclipped. */}
+          <span className="city-park__hit" aria-hidden />
           {dim && (
             <span className="city-badge is-off" style={{ left: '50%', top: '4%' }} aria-hidden>
               <ZapOff />

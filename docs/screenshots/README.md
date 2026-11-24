@@ -33,3 +33,15 @@ The Phase 4 shots are from local dev, so they include the dev-only simulated-clo
 | `town-all-l3.png` | Every building at level 3: power complex, department store, three-storey houses (Kenney upgrade stages) |
 
 Captured from local dev. The in-town levels were set on a test account's local city. The all-level-3 and unpowered shots use the dev-only `?level=` / `?preview=` switch.
+
+## Phase 5 — onboarding, feedback and landing page
+
+| File | What it shows |
+|---|---|
+| `phase5-landing.png` / `phase5-landing-phone.png` | The static landing page: hero, the town at level 3, and "How it works" |
+| `phase5-onboarding-phone.png` | First visit on a 390 px phone: the three-step how-to-play card and the out-of-power banner |
+| `phase5-outage-phone.png` | After dismissing the card: the out-of-power banner above the dark town |
+| `phase5-dashboard.png` | Dashboard with the next-goal line ("Next upgrade: Power Station (100) in ≈ 3h 12m") |
+| `phase5-wake-reward-phone.png` | A rewarded wake-up, plus the hint explaining why a session started now wouldn't earn (4-hour gap) |
+
+Captured from local dev with a test account (the wake-up uses the dev-only simulated clock, which is also why the sleep history shows a "Dev:" note; production doesn't have it).

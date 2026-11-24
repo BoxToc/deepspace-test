@@ -9,10 +9,11 @@
 
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BatteryCharging, Coins, Moon, Zap } from 'lucide-react'
+import { BatteryCharging, Coins, Moon, ZapOff, Zap } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { TimezoneSetting } from '@/components/TimezoneSetting'
 import { SleepPanel } from '@/components/SleepPanel'
+import { HowToPlayButton, HowToPlayCard, useHowToPlay } from '@/components/HowToPlay'
 import { DevClockPanel } from '@/components/DevClockPanel'
 import { CityScene } from '@/components/city/CityScene'
 import { UpgradePanel } from '@/components/city/UpgradePanel'
@@ -20,6 +21,7 @@ import { DEV_TOOLS, useDevClock } from '@/hooks/useDevClock'
 import { useLiveCity, type LiveCity } from '@/hooks/useLiveCity'
 import { BUILDING_KEYS, BUILDINGS, MAX_BUILDING_LEVEL, type BuildingKey } from '@/game/config'
 import { upgradeCost } from '@/game/economy'
+import { goalProgress, nextUpgradeGoal } from '@/game/guidance'
 import type { BuildingLevels, CityData } from '@/game/types'
 import { useCity } from '@/hooks/useCity'
 import { APP_NAME } from '@/constants'
@@ -53,7 +55,9 @@ function CityDashboard({ stored, clockOffsetMs, syncClock }: { stored: CityData;
   const preview = useDevPreview()
   const view = preview(live, stored)
   const [selected, setSelected] = useState<BuildingKey | null>(null)
+  const howTo = useHowToPlay()
   const { city } = live
+  const sleeping = Boolean(stored.activeSessionId)
 
   const advanceDevClock = async (minutes: number) => {
     await devClock.advance(minutes)
@@ -63,10 +67,29 @@ function CityDashboard({ stored, clockOffsetMs, syncClock }: { stored: CityData;
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10" data-testid="city-page">
       <title>{`City · ${APP_NAME}`}</title>
-      <div className="flex flex-wrap items-end justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h1 className="text-2xl font-semibold text-foreground">Your city</h1>
-        <TimezoneSetting city={stored} now={live.now} />
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {!howTo.open && <HowToPlayButton onClick={howTo.show} />}
+          <TimezoneSetting city={stored} now={live.now} />
+        </div>
       </div>
+
+      {howTo.open && <HowToPlayCard onDismiss={howTo.dismiss} />}
+
+      {!live.powered && !sleeping && (
+        <p
+          className="mt-4 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-foreground"
+          role="status"
+          data-testid="city-outage"
+        >
+          <ZapOff className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
+          <span>
+            Your town is out of power, so buildings are dark and earn nothing. Start a sleep session below tonight to recharge
+            the battery.
+          </span>
+        </p>
+      )}
 
       <div className="mt-4">
         <CityScene levels={view.levels} power={view.power} sleeping={view.sleeping} onSelect={setSelected} />
@@ -96,9 +119,12 @@ function CityDashboard({ stored, clockOffsetMs, syncClock }: { stored: CityData;
           testId="city-coins"
           value={`${Math.floor(city.coins)}`}
           sub={
-            <span data-testid="city-coin-rate">
-              {live.powered ? `+${formatAmount(live.coinsPerHour)} / hour` : 'Paused while the power is out'}
-            </span>
+            <>
+              <span data-testid="city-coin-rate">
+                {live.powered ? `+${formatAmount(live.coinsPerHour)} / hour` : 'Paused while the power is out'}
+              </span>
+              <NextGoal levels={stored.buildings} coins={city.coins} coinsPerHour={live.powered ? live.coinsPerHour : 0} hoursLeft={live.hoursLeft} />
+            </>
           }
         />
       </dl>
@@ -115,7 +141,12 @@ function CityDashboard({ stored, clockOffsetMs, syncClock }: { stored: CityData;
           const affordable = cost !== null && city.coins >= cost
           return (
             <li key={key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 text-sm" data-testid={`building-row-${key}`}>
-              <button type="button" className="text-left text-foreground underline-offset-4 hover:underline" onClick={() => setSelected(key)}>
+              <button
+                type="button"
+                className="min-h-9 text-left text-foreground underline-offset-4 hover:underline"
+                onClick={() => setSelected(key)}
+                aria-label={`${BUILDINGS[key].label}: details`}
+              >
                 {BUILDINGS[key].label}
               </button>
               <span className="flex flex-wrap items-center gap-3 text-muted-foreground">
@@ -126,7 +157,13 @@ function CityDashboard({ stored, clockOffsetMs, syncClock }: { stored: CityData;
                 {cost === null ? (
                   <span className="text-foreground" data-testid={`building-max-${key}`}>Max</span>
                 ) : (
-                  <Button size="sm" variant={affordable ? 'default' : 'outline'} onClick={() => setSelected(key)} data-testid={`building-upgrade-${key}`}>
+                  <Button
+                    size="sm"
+                    variant={affordable ? 'default' : 'outline'}
+                    onClick={() => setSelected(key)}
+                    data-testid={`building-upgrade-${key}`}
+                    aria-label={`Upgrade ${BUILDINGS[key].label} for ${cost} coins${affordable ? '' : ` (need ${Math.ceil(cost - city.coins)} more)`}`}
+                  >
                     <Coins className="size-3.5" aria-hidden /> {cost}
                   </Button>
                 )}
@@ -135,7 +172,7 @@ function CityDashboard({ stored, clockOffsetMs, syncClock }: { stored: CityData;
           )
         })}
       </ul>
-      {stored.activeSessionId && (
+      {sleeping && (
         <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
           <Moon className="size-3.5" aria-hidden /> Your town keeps running on stored power while you sleep.
         </p>
@@ -210,6 +247,25 @@ function Stat({
       )}
       <dd className="mt-1.5 text-xs text-muted-foreground">{sub}</dd>
     </div>
+  )
+}
+
+/** "Next upgrade: Shop (100) in ≈ 2h 10m" — display-only guidance from the live economy. */
+function NextGoal({ levels, coins, coinsPerHour, hoursLeft }: { levels: BuildingLevels; coins: number; coinsPerHour: number; hoursLeft: number }) {
+  const goal = nextUpgradeGoal(levels, coins)
+  if (!goal) return <span className="mt-0.5 block" data-testid="city-next-goal">Every building is fully upgraded!</span>
+  const name = BUILDINGS[goal.building].label
+  const p = goalProgress(goal, coinsPerHour, hoursLeft)
+  const text =
+    p.kind === 'affordable'
+      ? `You can afford an upgrade: ${name} (${goal.cost})`
+      : p.kind === 'eta'
+        ? `Next upgrade: ${name} (${goal.cost}) in ≈ ${formatHours(p.hours)}`
+        : `Next upgrade: ${name} (${goal.cost}), sleep to keep earning`
+  return (
+    <span className={`mt-0.5 block ${p.kind === 'affordable' ? 'font-medium text-amber-400' : ''}`} data-testid="city-next-goal" data-kind={p.kind}>
+      {text}
+    </span>
   )
 }
 

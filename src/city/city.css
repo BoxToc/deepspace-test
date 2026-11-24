@@ -76,11 +76,14 @@
   outline: none;
 }
 .city-building[data-selectable] .city-sprite,
-.city-park[data-selectable] {
+.city-park[data-selectable] .city-park__hit {
   pointer-events: auto;
 }
-.city-park[data-selectable] {
-  /* Only the fountain's top face, not the whole tile box. */
+/* Only the fountain's top face takes the click — clipped on a child, so the
+   park's badge and focus ring (on the parent) are never clipped. */
+.city-park__hit {
+  position: absolute;
+  inset: 0;
   clip-path: polygon(50% 0, 100% 33%, 50% 67%, 0 33%);
 }
 [data-selectable]:hover .city-sprite,
