@@ -48,7 +48,7 @@ src/components/ React UI: game HUD, scene, sleep panel, upgrade panel, onboardin
 
 **Original art that matches the Kenney pack.** No CC0 pack had a Power Station that visibly grows, so a dev-only pipeline (three.js in headless Chromium) renders new sprites in Kenney's projection, palette and shading. It is calibrated against a real Kenney tile to a 98.5% silhouette match. The citizens come from the same pipeline. three.js never ships to players.
 
-**A living town that stays cheap.** Citizens and cars follow fixed routes as a pure function of time, so there is no pathfinding or per-frame React rendering. One `requestAnimationFrame` loop moves them with compositor-only transforms, everything pauses off-screen, and reduced-motion users get a still town. Unit tests check that walkers stay on sidewalks, that cars stay in their lanes, and that the two cars never collide.
+**A living town that stays cheap.** Citizens and cars follow fixed routes as a pure function of time, so there is no pathfinding or per-frame React rendering. One `requestAnimationFrame` loop moves them with compositor-only transforms, everything pauses off-screen, and reduced-motion users get a still town. Unit tests check that walkers stay on sidewalks, that cars stay in their lanes, and that the two cars share one loop, phased so they only ever pass each other in opposite lanes.
 
 **Trade-offs I accepted:**
 - **Self-reported sleep.** Two taps start and end a session. The anti-farming rules cap the abuse: a 1-hour minimum, a 10-hour cap, one reward per local day, a 4-hour gap between rewards, and time-zone changes at most once a week. They can't verify that you slept.
@@ -74,7 +74,9 @@ DreamGrid was built between November 19 and November 24, 2026, in five phases, e
 
 ## 5. What I personally directed, reviewed, tested and verified
 
-From the project's history, my role was product owner and reviewer:
+> **✏️ Confirm:** the bullets below come from our working sessions (the instructions and approvals you gave). Check that each one is how you'd describe your role, and reword it in your own voice.
+
+My role was product owner and reviewer:
 
 - **Direction:** I defined the core loop (sleep → energy → city → coins → upgrades), the phase plan, and the scope freeze before the deadline.
 - **Guardrails:** I set the rules the work had to follow:
