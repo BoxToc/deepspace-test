@@ -10,7 +10,7 @@
  * Grid: column c grows toward screen bottom-right, row r toward bottom-left.
  */
 
-import { SPRITES, type BuildingArt, type SpriteKey } from './sprites'
+import { isSingleArt, SPRITES, type LevelArt, type SpriteKey } from './sprites'
 
 export const HALF_W = 66
 export const HALF_H = 33
@@ -54,23 +54,26 @@ export function placeDetail(sprite: SpriteKey, c: number, r: number, offset: Poi
 }
 
 /**
- * The layers of a building at `level` (1 = ground floor + roof; each extra
- * level adds one floor), bottom to top. `flip` mirrors it so its front faces
- * swap — still a valid isometric view.
+ * The layers of one level's look, bottom to top: a Kenney ground floor, its
+ * upper floors and a roof — or one pre-composed sprite. `flip` mirrors it so
+ * its front faces swap — still a valid isometric view.
  */
-export function placeBuilding(art: BuildingArt, c: number, r: number, level: number, flip = false): Placed[] {
+export function placeBuilding(art: LevelArt, c: number, r: number, flip = false): Placed[] {
   const { x, y } = cellCenter(c, r)
+  if (isSingleArt(art)) {
+    const { w, h } = SPRITES[art.sprite]
+    return [{ sprite: art.sprite, left: x - HALF_W, top: y - art.anchorY, w, h, flip }]
+  }
   const ground = SPRITES[art.ground]
   const groundTop = y - TILE_FACE_Y - GROUND_FLOOR_DROP
   const layers: Placed[] = [{ sprite: art.ground, left: x - HALF_W, top: groundTop, w: ground.w, h: ground.h, flip }]
 
-  const floors = Math.max(0, Math.floor(level) - 1)
-  const floor = SPRITES[art.floor]
-  for (let k = 1; k <= floors; k++) {
-    layers.push({ sprite: art.floor, left: x - HALF_W + FLOOR_INSET_X, top: groundTop - STOREY * k, w: floor.w, h: floor.h, flip })
-  }
+  art.floors.forEach((key, i) => {
+    const floor = SPRITES[key]
+    layers.push({ sprite: key, left: x - HALF_W + FLOOR_INSET_X, top: groundTop - STOREY * (i + 1), w: floor.w, h: floor.h, flip })
+  })
   const roof = SPRITES[art.roof]
-  const topBlockTop = groundTop - STOREY * floors
+  const topBlockTop = groundTop - STOREY * art.floors.length
   layers.push({ sprite: art.roof, left: x - HALF_W + FLOOR_INSET_X, top: topBlockTop + ROOF_SEAT - roof.h, w: roof.w, h: roof.h, flip })
   return layers
 }

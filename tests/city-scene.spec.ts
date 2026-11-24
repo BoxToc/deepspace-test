@@ -3,6 +3,7 @@
  */
 import { test, expect, loadAllTestAccounts } from 'deepspace/testing'
 import type { Page } from '@playwright/test'
+import { USE_POWER_STATION_ART } from '../src/city/sprites'
 
 const usable = loadAllTestAccounts().length
 test.skip(usable < 1, 'Needs a usable test account.')
@@ -61,6 +62,7 @@ test('dev preview: an unpowered town dims every building and shows its badge', a
   for (const v of await buildings.evaluateAll((els) => els.map((e) => e.getAttribute('data-powered')))) expect(v).toBe('false')
   await expect(page.locator('[data-testid="city-scene"] .city-badge.is-off')).toHaveCount(5)
   await expect(page.locator('[data-testid="city-scene"] .city-lamp-glow')).toHaveCount(0)
-  // Level 3 preview: ground + 2 floors + roof for each of the 4 stacked buildings.
-  await expect(page.locator('[data-testid="city-scene"] .city-building img')).toHaveCount(16)
+  // Level 3 preview: ground + 2 floors + roof for each Kenney stack (shop, two houses);
+  // the Power Station is one rendered sprite (or a 4-layer Kenney stack as fallback).
+  await expect(page.locator('[data-testid="city-scene"] .city-building img')).toHaveCount(3 * 4 + (USE_POWER_STATION_ART ? 1 : 4))
 })
