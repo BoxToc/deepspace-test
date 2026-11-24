@@ -48,7 +48,8 @@ src/
   actions/     Server actions (the only way state changes): sleep, upgrades, city store
   schemas/     DeepSpace record collections and their RBAC permissions
   city/        The isometric scene: projection, layout, sprite stacking (no canvas, plain <img>)
-  components/  React UI: SleepPanel, CityScene, UpgradePanel, HowToPlay, TimezoneSetting
+  components/  React UI: the game HUD (ResourceHud, BuildingTiles), CityScene + CityLife,
+               SleepPanel, UpgradePanel, HowToPlay, TimezoneSetting
   pages/       Static landing (prerendered) + the signed-in app under (app)/
 tools/sprite-pipeline/   Dev-only three.js renderer for the original Power Station art
 ```
@@ -85,6 +86,10 @@ A simulated clock, fault injection and a city-state setter make the edge cases t
 - **The Power Station is original art** made for this project. A dev-only three.js pipeline ([`tools/sprite-pipeline`](tools/sprite-pipeline/README.md)) renders it in Kenney's exact projection, palette and shading. It was calibrated against a Kenney tile to 98.5% silhouette overlap. Its three levels are one building growing: a generator building, then an electrical substation, then a power complex. three.js is a dev dependency only and never ships to players.
 - **Citizens** are original pipeline art too, because Kenney's packs have no people. The **taxi and red sedan** are from Kenney's Isometric Vehicles pack.
 - The scene is plain `<img>` elements sorted with the painter's algorithm and positioned in percentages, so it scales down to a 360 px phone without a canvas.
+
+### The game HUD
+
+The city page is laid out like a mobile city-builder. The town sits in a frame with four resource chips above it (battery, coins per hour, power left, awake/sleeping) and the next upgrade goal below it. The sleep controls and building tiles sit beside it, or below it on phones. The HUD only displays the live, settled city that `useLiveCity` computes each second. It never decides anything. The "+75 ⚡" pop appears only when a value jumps (a reward, a spend), never on the every-second ticks.
 
 ### Town life (decorative only)
 
