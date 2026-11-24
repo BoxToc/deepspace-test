@@ -61,7 +61,9 @@ test('offline time: energy is consumed and coins earned exactly once, on the ser
   expect(up.success, up.error).toBe(true)
   expect(up.data.coins).toBeCloseTo(4.8, 1)
   const s = (await api.inspect()).city as unknown as { electricity: number; coins: number }
-  expect(s.electricity).toBeCloseTo(21, 2)
+  // ±0.05 ⚡ allows ~50 s of real drain (3.5 ⚡/h) between the reset and this read on a loaded
+  // machine; settling the 4 offline hours twice would be off by 14 ⚡.
+  expect(s.electricity).toBeCloseTo(21, 1)
   expect(s.coins).toBeCloseTo(4.8, 1)
 
   // Settling again at the same moment changes nothing (no double counting).
