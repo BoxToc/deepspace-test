@@ -15,6 +15,7 @@
 
 import { useEffect, useState } from 'react'
 import { useQuery } from 'deepspace'
+import { ChevronRight, Moon, Sun } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { callAction } from '@/lib/actions'
 import { DEV_TOOLS } from '@/hooks/useDevClock'
@@ -66,13 +67,16 @@ export function SleepPanel({
   }
 
   return (
-    <section className="mt-8 rounded-lg border border-border bg-card p-5" data-testid="sleep-panel" data-sleeping={sleeping}>
+    <section className="hud-card" data-testid="sleep-panel" data-sleeping={sleeping} aria-labelledby="sleep-title">
+      <h2 id="sleep-title" className="hud-label mb-2 flex items-center gap-1.5">
+        <Moon className="size-3.5" aria-hidden /> Tonight
+      </h2>
       {sleeping ? (
         <>
           <p className="text-sm text-muted-foreground" data-testid="sleep-status">
             {active ? `Sleeping since ${formatStart(active.data.startedAt, now)}` : 'Sleeping…'}
           </p>
-          <p className="mt-1 text-3xl font-semibold tabular-nums text-foreground" data-testid="sleep-elapsed">
+          <p className="mt-1 text-3xl font-bold tabular-nums text-foreground" data-testid="sleep-elapsed">
             {active ? formatMinutes(recordedMinutes(active.data.startedAt, now)) : '—'}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">Recorded time — how long this session has been running.</p>
@@ -90,11 +94,11 @@ export function SleepPanel({
               </div>
             </div>
           ) : (
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button disabled={busy !== null} onClick={() => void run('wake', 'wakeUp')} data-testid="sleep-wake">
-                {busy === 'wake' ? 'Waking…' : 'Wake Up'}
+            <div className="mt-4 grid gap-2">
+              <Button className="game-btn is-wake" disabled={busy !== null} onClick={() => void run('wake', 'wakeUp')} data-testid="sleep-wake">
+                <Sun className="size-4" aria-hidden /> {busy === 'wake' ? 'Waking…' : 'Wake Up'}
               </Button>
-              <Button variant="outline" disabled={busy !== null} onClick={() => setConfirmCancel(true)} data-testid="sleep-cancel">
+              <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => setConfirmCancel(true)} data-testid="sleep-cancel">
                 Cancel Session
               </Button>
             </div>
@@ -103,8 +107,8 @@ export function SleepPanel({
       ) : (
         <>
           <p className="text-sm text-muted-foreground" data-testid="sleep-status">Awake</p>
-          <Button className="mt-3" disabled={busy !== null} onClick={() => void run('start', 'startSleep')} data-testid="sleep-start">
-            {busy === 'start' ? 'Starting…' : 'Start Sleep'}
+          <Button className="game-btn mt-2" disabled={busy !== null} onClick={() => void run('start', 'startSleep')} data-testid="sleep-start">
+            <Moon className="size-4" aria-hidden /> {busy === 'start' ? 'Starting…' : 'Start Sleep'}
           </Button>
         </>
       )}
@@ -164,31 +168,52 @@ function formatStart(startedAt: number, now: number): string {
   return `${new Date(startedAt).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}, ${time}`
 }
 
-function SleepHistory({ sessions, devClockOffsetMs }: { sessions: { recordId: string; data: SleepSessionData }[]; devClockOffsetMs: number }) {
+type SessionRow = { recordId: string; data: SleepSessionData }
+
+/** The latest session stays in view; older ones fold away under "Sleep history". */
+function SleepHistory({ sessions, devClockOffsetMs }: { sessions: SessionRow[]; devClockOffsetMs: number }) {
   if (sessions.length === 0) return null
+  const [latest, ...older] = sessions
   return (
-    <div className="mt-6">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Recent sessions</h3>
+    <div className="mt-4 border-t border-border pt-3">
       {DEV_TOOLS && devClockOffsetMs > 0 && (
-        <p className="mt-1 text-xs text-amber-400" data-testid="sleep-history-dev-note">
+        <p className="mb-1 text-xs text-amber-400" data-testid="sleep-history-dev-note">
           Dev: dates follow the simulated test clock ({formatAhead(devClockOffsetMs)} ahead of real time).
         </p>
       )}
-      <ul className="mt-2 divide-y divide-border text-sm" data-testid="sleep-history">
-        {sessions.map(({ recordId, data: s }) => (
-          <li key={recordId} className="flex flex-wrap items-baseline justify-between gap-2 py-2" data-testid="sleep-row" data-status={s.rewardStatus}>
-            <span className="text-foreground" data-testid="sleep-row-day">{formatDayKey(sessionDayKey(s))}</span>
-            <span className="text-muted-foreground">
-              recorded {formatMinutes(s.recordedMinutes)}
-              {s.rewardStatus === 'rewarded' && <> · credited {formatMinutes(s.creditedMinutes)}</>}
-            </span>
-            <span className={s.rewardStatus === 'rewarded' ? 'font-medium text-foreground' : 'text-muted-foreground'}>
-              {s.rewardStatus === 'rewarded' ? `+${formatEnergy(s.energyAwarded)} ⚡` : REWARD_LABELS[s.rewardStatus]}
-            </span>
-          </li>
-        ))}
+      <h3 className="text-xs font-medium text-muted-foreground">Last sleep</h3>
+      <ul className="text-sm" data-testid="sleep-history">
+        <HistoryRow row={latest} />
       </ul>
+      {older.length > 0 && (
+        <details className="group mt-1">
+          <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+            <ChevronRight className="size-3.5 transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden />
+            Sleep history ({older.length} more)
+          </summary>
+          <ul className="divide-y divide-border text-sm">
+            {older.map((row) => (
+              <HistoryRow key={row.recordId} row={row} />
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
+  )
+}
+
+function HistoryRow({ row: { data: s } }: { row: SessionRow }) {
+  return (
+    <li className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 py-1.5" data-testid="sleep-row" data-status={s.rewardStatus}>
+      <span className="text-foreground" data-testid="sleep-row-day">{formatDayKey(sessionDayKey(s))}</span>
+      <span className="text-xs text-muted-foreground">
+        recorded {formatMinutes(s.recordedMinutes)}
+        {s.rewardStatus === 'rewarded' && <> · credited {formatMinutes(s.creditedMinutes)}</>}
+      </span>
+      <span className={s.rewardStatus === 'rewarded' ? 'font-semibold text-amber-300' : 'text-muted-foreground'}>
+        {s.rewardStatus === 'rewarded' ? `+${formatEnergy(s.energyAwarded)} ⚡` : REWARD_LABELS[s.rewardStatus]}
+      </span>
+    </li>
   )
 }
 

@@ -42,6 +42,8 @@ Captured from local dev. The in-town levels were set on a test account's local c
 | `phase5-onboarding-phone.png` | First visit on a 390 px phone: the three-step how-to-play card and the out-of-power banner |
 | `phase5-outage-phone.png` | After dismissing the card: the out-of-power banner above the dark town |
 | `phase5-dashboard.png` | Dashboard with the next-goal line ("Next upgrade: Power Station (100) in ≈ 3h 12m") |
+| `phase5-hud.png` | The game HUD (desktop): resource chips above the town, goal ribbon, "Tonight" sleep card and building tiles in a side column |
+| `phase5-hud-phone.png` | The game HUD at 390 px: 2×2 resource chips, the town at full width, then the goal ribbon and the sleep card |
 | `phase5-wake-reward-phone.png` | A rewarded wake-up, plus the hint explaining why a session started now wouldn't earn (4-hour gap) |
 
 Captured from local dev with a test account (the wake-up uses the dev-only simulated clock, which is also why the sleep history shows a "Dev:" note; production doesn't have it).

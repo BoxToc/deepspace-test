@@ -5,11 +5,15 @@
  * server-aligned current time every second (useLiveCity), so energy drains,
  * coins tick up, and buildings dim the moment the battery empties. All
  * changes go through server actions; this page never writes the city.
+ *
+ * Layout: the town sits in a game frame with the resource HUD on top and
+ * the next goal below; tonight's sleep, the buildings and settings sit in a
+ * side column (stacked under the town on phones).
  */
 
 import { useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BatteryCharging, Coins, Moon, ZapOff, Zap } from 'lucide-react'
+import { Building2, Moon, ZapOff } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { TimezoneSetting } from '@/components/TimezoneSetting'
 import { SleepPanel } from '@/components/SleepPanel'
@@ -17,11 +21,11 @@ import { HowToPlayButton, HowToPlayCard, useHowToPlay } from '@/components/HowTo
 import { DevClockPanel } from '@/components/DevClockPanel'
 import { CityScene } from '@/components/city/CityScene'
 import { UpgradePanel } from '@/components/city/UpgradePanel'
+import { GoalRibbon, ResourceHud } from '@/components/city/ResourceHud'
+import { BuildingTiles } from '@/components/city/BuildingTiles'
 import { DEV_TOOLS, useDevClock } from '@/hooks/useDevClock'
 import { useLiveCity, type LiveCity } from '@/hooks/useLiveCity'
-import { BUILDING_KEYS, BUILDINGS, MAX_BUILDING_LEVEL, type BuildingKey } from '@/game/config'
-import { upgradeCost } from '@/game/economy'
-import { goalProgress, nextUpgradeGoal } from '@/game/guidance'
+import { BUILDING_KEYS, MAX_BUILDING_LEVEL, type BuildingKey } from '@/game/config'
 import type { BuildingLevels, CityData } from '@/game/types'
 import { useCity } from '@/hooks/useCity'
 import { APP_NAME } from '@/constants'
@@ -73,118 +77,56 @@ function CityDashboard({ stored, clockOffsetMs, syncClock }: { stored: CityData;
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10" data-testid="city-page">
+    <div className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-8" data-testid="city-page">
       <title>{`City · ${APP_NAME}`}</title>
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <h1 className="text-2xl font-semibold text-foreground">Your city</h1>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          {!howTo.open && <HowToPlayButton onClick={howTo.show} />}
-          <TimezoneSetting city={stored} now={live.now} />
-        </div>
-      </div>
+      <h1 className="sr-only">Your city</h1>
 
       {howTo.open && <HowToPlayCard onDismiss={howTo.dismiss} />}
 
-      {!live.powered && !sleeping && (
-        <p
-          className="mt-4 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-foreground"
-          role="status"
-          data-testid="city-outage"
-        >
-          <ZapOff className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
-          <span>
-            Your town is out of power, so buildings are dark and earn nothing. Start a sleep session below tonight to recharge
-            the battery.
-          </span>
-        </p>
-      )}
+      <div className={`grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-5 ${howTo.open ? 'mt-4' : ''}`}>
+        <section className="hud-frame min-w-0" aria-label="Your town">
+          <ResourceHud live={live} sleeping={sleeping} />
 
-      <div className="mt-4">
-        <CityScene levels={view.levels} power={view.power} sleeping={view.sleeping} onSelect={setSelected} celebrate={celebrate} />
-        <p className="mt-2 text-center text-xs text-muted-foreground">Tap a building to see what it does and upgrade it.</p>
+          {!live.powered && !sleeping && (
+            <p
+              className="mt-2 flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-foreground sm:text-sm"
+              role="status"
+              data-testid="city-outage"
+            >
+              <ZapOff className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
+              <span>Your town is out of power, so buildings are dark and earn nothing. Start a sleep session tonight to recharge the battery.</span>
+            </p>
+          )}
+
+          <div className="mt-2">
+            <CityScene levels={view.levels} power={view.power} sleeping={view.sleeping} onSelect={setSelected} celebrate={celebrate} />
+          </div>
+
+          <GoalRibbon levels={stored.buildings} coins={city.coins} coinsPerHour={live.powered ? live.coinsPerHour : 0} hoursLeft={live.hoursLeft} />
+          <p className="mt-1.5 text-center text-xs text-muted-foreground">Tap a building to see what it does and upgrade it.</p>
+        </section>
+
+        <aside className="flex min-w-0 flex-col gap-4">
+          <SleepPanel city={stored} clockOffsetMs={clockOffsetMs} devClockOffsetMs={DEV_TOOLS ? devClock.offsetMs : 0} />
+
+          <section className="hud-card" aria-labelledby="buildings-title">
+            <h2 id="buildings-title" className="hud-label mb-2.5 flex items-center gap-1.5">
+              <Building2 className="size-3.5" aria-hidden /> Buildings
+            </h2>
+            <BuildingTiles levels={stored.buildings} coins={city.coins} power={view.power} selected={selected} onSelect={setSelected} />
+            {sleeping && (
+              <p className="mt-2.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Moon className="size-3.5" aria-hidden /> Your town keeps running on stored power while you sleep.
+              </p>
+            )}
+          </section>
+
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
+            <TimezoneSetting city={stored} now={live.now} />
+            {!howTo.open && <HowToPlayButton onClick={howTo.show} />}
+          </div>
+        </aside>
       </div>
-
-      <dl className="mt-4 grid grid-cols-2 gap-3 sm:gap-4">
-        <Stat
-          icon={<Zap className="size-4 text-amber-400" aria-hidden />}
-          label="Electricity"
-          testId="city-electricity"
-          value={`${formatAmount(city.electricity)} / ${live.capacity} ⚡`}
-          sub={
-            live.powered ? (
-              <span data-testid="city-power-hours">≈ {formatHours(live.hoursLeft)} of power · uses {formatAmount(live.usagePerHour)} ⚡/h</span>
-            ) : (
-              <span className="text-destructive" data-testid="city-power-hours">
-                Out of power — sleep to recharge
-              </span>
-            )
-          }
-          meter={Math.min(1, city.electricity / live.capacity)}
-        />
-        <Stat
-          icon={<Coins className="size-4 text-amber-400" aria-hidden />}
-          label="Coins"
-          testId="city-coins"
-          value={`${Math.floor(city.coins)}`}
-          sub={
-            <>
-              <span data-testid="city-coin-rate">
-                {live.powered ? `+${formatAmount(live.coinsPerHour)} / hour` : 'Paused while the power is out'}
-              </span>
-              <NextGoal levels={stored.buildings} coins={city.coins} coinsPerHour={live.powered ? live.coinsPerHour : 0} hoursLeft={live.hoursLeft} />
-            </>
-          }
-        />
-      </dl>
-
-      <SleepPanel city={stored} clockOffsetMs={clockOffsetMs} devClockOffsetMs={DEV_TOOLS ? devClock.offsetMs : 0} />
-
-      <h2 className="mt-10 flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-        <BatteryCharging className="size-4" aria-hidden /> Buildings
-      </h2>
-      <ul className="mt-3 divide-y divide-border rounded-lg border border-border" data-testid="city-buildings">
-        {BUILDING_KEYS.map((key) => {
-          const level = stored.buildings[key]
-          const cost = upgradeCost(level)
-          const affordable = cost !== null && city.coins >= cost
-          return (
-            <li key={key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 text-sm" data-testid={`building-row-${key}`}>
-              <button
-                type="button"
-                className="min-h-9 text-left text-foreground underline-offset-4 hover:underline"
-                onClick={() => setSelected(key)}
-                aria-label={`${BUILDINGS[key].label}: details`}
-              >
-                {BUILDINGS[key].label}
-              </button>
-              <span className="flex flex-wrap items-center gap-3 text-muted-foreground">
-                <span data-testid={`building-power-${key}`}>{view.power[key] ? 'Powered' : 'No power'}</span>
-                <span data-testid={`building-level-${key}`}>
-                  Level {level}/{MAX_BUILDING_LEVEL}
-                </span>
-                {cost === null ? (
-                  <span className="text-foreground" data-testid={`building-max-${key}`}>Max</span>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant={affordable ? 'default' : 'outline'}
-                    onClick={() => setSelected(key)}
-                    data-testid={`building-upgrade-${key}`}
-                    aria-label={`Upgrade ${BUILDINGS[key].label} for ${cost} coins${affordable ? '' : ` (need ${Math.ceil(cost - city.coins)} more)`}`}
-                  >
-                    <Coins className="size-3.5" aria-hidden /> {cost}
-                  </Button>
-                )}
-              </span>
-            </li>
-          )
-        })}
-      </ul>
-      {sleeping && (
-        <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Moon className="size-3.5" aria-hidden /> Your town keeps running on stored power while you sleep.
-        </p>
-      )}
 
       <UpgradePanel
         building={selected}
@@ -225,68 +167,4 @@ function useDevPreview() {
     if (mode === 'night') view.sleeping = true
     return view
   }
-}
-
-function Stat({
-  icon,
-  label,
-  value,
-  sub,
-  testId,
-  meter,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string
-  sub: React.ReactNode
-  testId: string
-  meter?: number
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-card px-4 py-3">
-      <dt className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
-        {icon}
-        {label}
-      </dt>
-      <dd className="mt-1 text-xl font-semibold tabular-nums text-foreground" data-testid={testId}>{value}</dd>
-      {meter !== undefined && (
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
-          <div className="h-full rounded-full bg-amber-400 transition-[width] duration-700" style={{ width: `${meter * 100}%` }} />
-        </div>
-      )}
-      <dd className="mt-1.5 text-xs text-muted-foreground">{sub}</dd>
-    </div>
-  )
-}
-
-/** "Next upgrade: Shop (100) in ≈ 2h 10m" — display-only guidance from the live economy. */
-function NextGoal({ levels, coins, coinsPerHour, hoursLeft }: { levels: BuildingLevels; coins: number; coinsPerHour: number; hoursLeft: number }) {
-  const goal = nextUpgradeGoal(levels, coins)
-  if (!goal) return <span className="mt-0.5 block" data-testid="city-next-goal">Every building is fully upgraded!</span>
-  const name = BUILDINGS[goal.building].label
-  const p = goalProgress(goal, coinsPerHour, hoursLeft)
-  const text =
-    p.kind === 'affordable'
-      ? `You can afford an upgrade: ${name} (${goal.cost})`
-      : p.kind === 'eta'
-        ? `Next upgrade: ${name} (${goal.cost}) in ≈ ${formatHours(p.hours)}`
-        : `Next upgrade: ${name} (${goal.cost}), sleep to keep earning`
-  return (
-    <span className={`mt-0.5 block ${p.kind === 'affordable' ? 'font-medium text-amber-400' : ''}`} data-testid="city-next-goal" data-kind={p.kind}>
-      {text}
-    </span>
-  )
-}
-
-function formatAmount(n: number): string {
-  const r = Math.round(n * 10) / 10
-  return Number.isInteger(r) ? String(r) : r.toFixed(1)
-}
-
-function formatHours(h: number): string {
-  if (!Number.isFinite(h)) return '∞'
-  const total = Math.floor(h * 60)
-  const hh = Math.floor(total / 60)
-  const mm = total % 60
-  return hh ? `${hh}h ${mm}m` : `${mm}m`
 }

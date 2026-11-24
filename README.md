@@ -31,8 +31,8 @@ When the battery runs dry, the town goes dark. The buildings dim and show "no po
 
 | | |
 |---|---|
-| ![Power Station progression](docs/screenshots/power-station-progression.png) | ![Dashboard](docs/screenshots/phase5-dashboard.png) |
-| The Power Station grows: generator building → substation → power complex | Live dashboard: battery, hours of power left, income and the next goal |
+| ![Power Station progression](docs/screenshots/power-station-progression.png) | ![The game HUD](docs/screenshots/phase5-hud.png) |
+| The Power Station grows: generator building → substation → power complex | The game HUD: battery, coins per hour, power left and sleep status above the town, with the next goal below it |
 | ![First-time onboarding on a phone](docs/screenshots/phase5-onboarding-phone.png) | ![A rewarded wake-up](docs/screenshots/phase5-wake-reward-phone.png) |
 | First visit: a three-step how-to-play card and an out-of-power warning | Waking up: the energy you earned, and when the next reward is possible |
 | ![Upgrade celebration](docs/screenshots/phase5-upgrade-celebration.webp) | ![Out of power](docs/screenshots/phase5-town-dark.png) |
@@ -106,6 +106,7 @@ Four citizens walk the sidewalks and two cars drive the roads. None of it has st
 
 - Each building in the town is a real button with a name ("Power Station: view and upgrade"), so the keyboard and screen readers can use it.
 - Sleep and upgrade results are announced through live regions, and errors use `role="alert"`.
+- The HUD gives every state in words as well as colour ("Powered" / "No power", "Out of power"). Gains and spends float a small "+75 ⚡" or "−100" over their counter, which is a one-off cue that stays still under reduced motion.
 - Touch targets are at least 36 px. No layout scrolls horizontally at 360 px.
 - Icons are `aria-hidden`, and every state is described in text as well as colour.
 
