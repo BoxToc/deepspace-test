@@ -4,7 +4,7 @@
 
 Live: **https://dreamgrid.app.space** · Built on the DeepSpace SDK (Cloudflare Workers + Durable Objects).
 
-![The town with every building at level 3](docs/screenshots/town-all-l3.png)
+![The town at level 3, with citizens on the sidewalks, traffic and steam from the cooling tower](docs/screenshots/phase5-town-life.webp)
 
 ```
 Sleep ──▶ Energy ──▶ Powered city ──▶ Coins ──▶ Upgrades
@@ -35,6 +35,8 @@ When the battery runs dry, the town goes dark. The buildings dim and show "no po
 | The Power Station grows: generator building → substation → power complex | Live dashboard: battery, hours of power left, income and the next goal |
 | ![First-time onboarding on a phone](docs/screenshots/phase5-onboarding-phone.png) | ![A rewarded wake-up](docs/screenshots/phase5-wake-reward-phone.png) |
 | First visit: a three-step how-to-play card and an out-of-power warning | Waking up: the energy you earned, and when the next reward is possible |
+| ![Upgrade celebration](docs/screenshots/phase5-upgrade-celebration.webp) | ![Out of power](docs/screenshots/phase5-town-dark.png) |
+| An upgrade, celebrated: the new building rises into place with sparkles and dust | Out of power: overcast sky, dark buildings, no steam, dimmed streets |
 
 More screenshots are in [`docs/screenshots/`](docs/screenshots/README.md).
 
@@ -81,7 +83,24 @@ A simulated clock, fault injection and a city-state setter make the edge cases t
 
 - **Kenney isometric packs (CC0).** Buildings are stacked from separate ground, floor and roof sprites, so an upgrade adds a storey and changes the façade ([`src/city/sprites.ts`](src/city/sprites.ts)). License: [`public/sprites/LICENSE-kenney.txt`](public/sprites/LICENSE-kenney.txt).
 - **The Power Station is original art** made for this project. A dev-only three.js pipeline ([`tools/sprite-pipeline`](tools/sprite-pipeline/README.md)) renders it in Kenney's exact projection, palette and shading. It was calibrated against a Kenney tile to 98.5% silhouette overlap. Its three levels are one building growing: a generator building, then an electrical substation, then a power complex. three.js is a dev dependency only and never ships to players.
+- **Citizens** are original pipeline art too, because Kenney's packs have no people. The **taxi and red sedan** are from Kenney's Isometric Vehicles pack.
 - The scene is plain `<img>` elements sorted with the painter's algorithm and positioned in percentages, so it scales down to a 360 px phone without a canvas.
+
+### Town life (decorative only)
+
+Four citizens walk the sidewalks and two cars drive the roads. None of it has state, a database or gameplay effects.
+
+- **Fixed routes as a pure timeline.** Each actor follows a fixed route of waypoints and pauses ([`src/city/life.ts`](src/city/life.ts)), so its pose is a pure function of the clock, with no pathfinding or AI. Unit tests check that:
+  - walkers stay on the sidewalks and cars stay in their lanes
+  - each sprite faces the way it moves
+  - the two cars share one 26-second loop, phased so they only ever pass in opposite lanes
+- **One animation loop.** A single `requestAnimationFrame` loop ([`CityLife.tsx`](src/components/city/CityLife.tsx)) moves six `<span>`s with compositor-only transforms; React doesn't re-render per frame. Every static node carries its painter's-order `z-index`, so moving sprites pass correctly behind and in front of buildings.
+- **Ambient CSS animation:** swaying trees, drifting clouds, and steam from the Level 3 cooling tower (only while the town has power).
+- **Upgrade celebration.** When a building is upgraded, it rises into place with sparkles once the upgrade panel closes.
+- **The town reacts to its state:**
+  - out of power: clouds turn grey and a cold vignette darkens the town
+  - asleep: the citizens go home and only the night taxi drives
+- **Cheap to run.** Everything pauses while the town is scrolled off-screen. Under `prefers-reduced-motion`, citizens stand still, cars stay away and nothing animates.
 
 ## Accessibility and mobile
 
@@ -104,9 +123,9 @@ The dev build shows a simulated-clock panel on `/city`, so you can fast-forward 
 ## Tests
 
 ```bash
-npm run test:unit                          # Vitest: rules, economy, time zones, scene layout, guidance (96 tests)
+npm run test:unit                          # Vitest: rules, economy, time zones, scene layout, guidance, town-life routes (103 tests)
 npx tsc --noEmit && npx eslint src tests   # types + lint
-npx deepspace test run e2e --port 5180     # Playwright against a real local worker (49 tests)
+npx deepspace test run e2e --port 5180     # Playwright against a real local worker (51 tests)
 ```
 
 The end-to-end suite signs in with DeepSpace test accounts. It covers:

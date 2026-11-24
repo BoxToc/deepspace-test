@@ -20,7 +20,7 @@
  * hall's door stays visible.
  */
 import * as THREE from 'three'
-import { BOLT, box, cylinder, decal, gableRoof, lathe, puff, scaled, upPx } from '../kenney-style.js'
+import { BOLT, box, cylinder, decal, gableRoof, lathe, scaled, upPx } from '../kenney-style.js'
 
 const BRICK = 'red'
 const TRIM = 'concrete'
@@ -156,7 +156,7 @@ function stack(g, x, z, y0, h, r = 0.045, bands = false) {
   g.add(cylinder('dark', r + 0.013, 0.03, [x, y0 + h, z]))
 }
 
-/** Hyperbolic cooling tower with a dark mouth and a little steam. */
+/** Hyperbolic cooling tower with a dark mouth. Its steam is animated in the game (src/city/city.css), only while powered. */
 function coolingTower(g, x, z) {
   const profile = [
     [0.17, 0],
@@ -169,9 +169,6 @@ function coolingTower(g, x, z) {
   g.add(lathe('concrete', profile, [x, 0.012, z]))
   g.add(cylinder('dark', 0.122, 0.012, [x, 0.012 + 0.6 - 0.02, z], 28))
   g.add(cylinder('concreteDark', 0.138, 0.02, [x, 0.012 + 0.585, z], 28)) // rim
-  g.add(puff('white', 0.065, [x + 0.02, 0.012 + 0.68, z - 0.03]))
-  g.add(puff('white', 0.05, [x + 0.08, 0.012 + 0.74, z - 0.07]))
-  g.add(puff('white', 0.04, [x + 0.02, 0.012 + 0.8, z - 0.09]))
 }
 
 // ── The facility ───────────────────────────────────────────────────────────

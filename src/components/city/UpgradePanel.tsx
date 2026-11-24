@@ -16,12 +16,15 @@ export function UpgradePanel({
   coins,
   powered,
   onClose,
+  onUpgraded,
 }: {
   building: BuildingKey | null
   level: number
   coins: number
   powered: boolean
   onClose: () => void
+  /** A successful upgrade (display only — the server already applied it). */
+  onUpgraded?: (building: BuildingKey) => void
 }) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
@@ -43,6 +46,7 @@ export function UpgradePanel({
     const res = await callAction<{ level: number }>('upgradeBuilding', { building, fromLevel: level })
     setBusy(false)
     setMessage(res.success ? { tone: 'ok', text: `${name} upgraded to level ${res.data.level}!` } : { tone: 'error', text: res.error })
+    if (res.success) onUpgraded?.(building)
   }
 
   return (
@@ -90,6 +94,11 @@ export function UpgradePanel({
             </p>
           )}
         </div>
+        {message?.tone === 'ok' && (
+          <Button variant="outline" size="sm" onClick={close} data-testid="upgrade-see-town">
+            See it in your town
+          </Button>
+        )}
       </div>
     </Modal>
   )

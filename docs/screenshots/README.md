@@ -45,3 +45,16 @@ Captured from local dev. The in-town levels were set on a test account's local c
 | `phase5-wake-reward-phone.png` | A rewarded wake-up, plus the hint explaining why a session started now wouldn't earn (4-hour gap) |
 
 Captured from local dev with a test account (the wake-up uses the dev-only simulated clock, which is also why the sleep history shows a "Dev:" note; production doesn't have it).
+
+## Phase 5 — town life
+
+| File | What it shows |
+|---|---|
+| `phase5-town-life.webp` | About 12 s of the animated town at level 3 (desktop): citizens walking and pausing, the taxi and sedan, steam from the cooling tower, swaying trees, drifting clouds |
+| `phase5-town-life.png` | A single frame of the same |
+| `phase5-town-life-phone.webp` | The animated town on a 390 px phone |
+| `phase5-upgrade-celebration.webp` | Upgrading the Shop to level 3, then closing the panel: the new building rises into place with sparkles and dust |
+| `phase5-town-dark.png` | Out of power: grey clouds, cold vignette, dimmed buildings, citizens and cars, no steam |
+| `phase5-town-night.png` | While sleeping: night sky and tint, citizens at home, lamps glowing |
+
+Captured from local dev with a test account (levels set with the dev-only state setter; the night shot uses the dev-only `?preview=night`). The animated previews are real-time frame captures, so they are a little choppier than the app itself.

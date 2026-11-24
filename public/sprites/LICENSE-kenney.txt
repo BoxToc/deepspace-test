@@ -4,7 +4,11 @@ Isometric Landscape packs (www.kenney.nl), renamed for readability.
 Exception: power-station-1.png, power-station-2.png and power-station-3.png are
 original DreamGrid art, rendered in the Kenney style by tools/sprite-pipeline
 from geometric models (tools/sprite-pipeline/models/power-station.js). They
-are not part of Kenney's packs.
+are not part of Kenney's packs. citizens.png is also original DreamGrid art from
+the same pipeline (tools/sprite-pipeline/models/citizens.js).
+
+vehicles.png combines four headings each of the taxi and the red "Sedan 1" from
+Kenney's Isometric Vehicles pack (CC0).
 
 
 ###############################################################################

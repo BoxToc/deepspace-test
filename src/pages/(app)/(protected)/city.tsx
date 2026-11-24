@@ -7,7 +7,7 @@
  * changes go through server actions; this page never writes the city.
  */
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { BatteryCharging, Coins, Moon, ZapOff, Zap } from 'lucide-react'
 import { Button } from '@/components/ui'
@@ -55,6 +55,14 @@ function CityDashboard({ stored, clockOffsetMs, syncClock }: { stored: CityData;
   const preview = useDevPreview()
   const view = preview(live, stored)
   const [selected, setSelected] = useState<BuildingKey | null>(null)
+  // A successful upgrade is celebrated in the town once its panel closes (the panel covers the scene).
+  const upgradedInPanel = useRef<BuildingKey | null>(null)
+  const [celebrate, setCelebrate] = useState<{ building: BuildingKey; id: number } | undefined>()
+  const closePanel = () => {
+    if (upgradedInPanel.current) setCelebrate({ building: upgradedInPanel.current, id: Date.now() })
+    upgradedInPanel.current = null
+    setSelected(null)
+  }
   const howTo = useHowToPlay()
   const { city } = live
   const sleeping = Boolean(stored.activeSessionId)
@@ -92,7 +100,7 @@ function CityDashboard({ stored, clockOffsetMs, syncClock }: { stored: CityData;
       )}
 
       <div className="mt-4">
-        <CityScene levels={view.levels} power={view.power} sleeping={view.sleeping} onSelect={setSelected} />
+        <CityScene levels={view.levels} power={view.power} sleeping={view.sleeping} onSelect={setSelected} celebrate={celebrate} />
         <p className="mt-2 text-center text-xs text-muted-foreground">Tap a building to see what it does and upgrade it.</p>
       </div>
 
@@ -183,7 +191,8 @@ function CityDashboard({ stored, clockOffsetMs, syncClock }: { stored: CityData;
         level={selected ? stored.buildings[selected] : 1}
         coins={city.coins}
         powered={live.powered}
-        onClose={() => setSelected(null)}
+        onClose={closePanel}
+        onUpgraded={(b) => (upgradedInPanel.current = b)}
       />
 
       {DEV_TOOLS && <DevClockPanel offsetMs={devClock.offsetMs} advance={advanceDevClock} error={devClock.error} />}

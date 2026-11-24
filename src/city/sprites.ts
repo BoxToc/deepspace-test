@@ -56,6 +56,12 @@ export const SPRITES = {
   powerStation1: s('power-station-1', 132, 164),
   powerStation2: s('power-station-2', 132, 170),
   powerStation3: s('power-station-3', 132, 218),
+
+  // Town life (decorative; positioned by src/city/life.ts, not the static scene).
+  // Citizens are original pipeline art (Kenney's packs have no people);
+  // vehicles are Kenney's Isometric Vehicles taxi and red sedan, 4 headings each.
+  citizens: s('citizens', 480, 26),
+  vehicles: s('vehicles', 144, 60),
 } satisfies Record<string, Sprite>
 
 export type SpriteKey = keyof typeof SPRITES
@@ -140,4 +146,12 @@ export function artForLevel(art: BuildingArt, level: number): LevelArt {
 
 export function isSingleArt(art: LevelArt): art is SingleArt {
   return 'sprite' in art
+}
+
+/**
+ * Where steam rises from a sprite (sprite px): the Level 3 cooling tower's
+ * mouth. Animated in the scene only while the town has power.
+ */
+export const STEAM_VENTS: Partial<Record<SpriteKey, { x: number; y: number }>> = {
+  powerStation3: { x: 106, y: 98 },
 }

@@ -128,4 +128,10 @@ describe('power state', () => {
     expect(isCityPowered({ electricity: 0.01 })).toBe(true)
     expect(isCityPowered({ electricity: 0 })).toBe(false)
   })
+
+  it('gives every node a z-index in painter order (ties keep DOM order), so moving actors can slot in between', () => {
+    const scene = buildScene({ power: 3, residential: 3, shop: 3, park: 3 })
+    const zs = scene.nodes.map((n) => n.z)
+    for (let i = 1; i < zs.length; i++) expect(zs[i], scene.nodes[i].id).toBeGreaterThanOrEqual(zs[i - 1])
+  })
 })
